@@ -162,5 +162,19 @@ export interface Database {
         }
       }
     }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      [_ in never]: never
+    }
+    Enums: {
+      appointment_type: 'tattoo' | 'consultation' | 'retouche'
+      finance_type: 'revenu' | 'depense' | 'arrhes'
+      payment_method: 'carte' | 'especes' | 'virement'
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
 }
