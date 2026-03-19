@@ -1,0 +1,146 @@
+import { useState } from 'react'
+import { X } from 'lucide-react'
+import { supabase } from '../lib/supabase'
+import { useAuth } from '../contexts/AuthContext'
+
+interface Props {
+  open: boolean
+  clientId: string
+  clientName: string
+  onClose: () => void
+  onCreated: () => void
+}
+
+const TYPE_OPTIONS = [
+  { value: 'tattoo', label: 'Tatouage' },
+  { value: 'consultation', label: 'Consultation' },
+  { value: 'retouche', label: 'Retouche' },
+]
+
+export default function NewAppointmentModal({ open, clientId, clientName, onClose, onCreated }: Props) {
+  const { user } = useAuth()
+  const [saving, setSaving] = useState(false)
+  const [form, setForm] = useState({
+    date: '',
+    time: '10:00',
+    duration_minutes: '60',
+    type: 'tattoo' as 'tattoo' | 'consultation' | 'retouche',
+    description: '',
+  })
+
+  if (!open) return null
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!user || !form.date) return
+    setSaving(true)
+
+    const { error } = await supabase.from('appointments').insert({
+      user_id: user.id,
+      client_id: clientId,
+      date: form.date,
+      time: form.time,
+      duration_minutes: parseInt(form.duration_minutes) || 60,
+      type: form.type,
+      description: form.description.trim() || null,
+    })
+
+    setSaving(false)
+    if (!error) {
+      setForm({ date: '', time: '10:00', duration_minutes: '60', type: 'tattoo', description: '' })
+      onCreated()
+      onClose()
+    }
+  }
+
+  const set = (key: string, value: string) => setForm(prev => ({ ...prev, [key]: value }))
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="bg-white rounded-2xl w-full max-w-lg mx-4">
+        <div className="flex items-center justify-between p-6 border-b border-border">
+          <div>
+            <h2 className="text-lg font-bold text-navy">Nouveau rendez-vous</h2>
+            <p className="text-sm text-text-muted mt-0.5">Pour {clientName}</p>
+          </div>
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-gray-100 text-text-muted">
+            <X size={20} />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-navy mb-1">Date *</label>
+              <input
+                required
+                type="date"
+                value={form.date}
+                onChange={e => set('date', e.target.value)}
+                className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-navy mb-1">Heure *</label>
+              <input
+                required
+                type="time"
+                value={form.time}
+                onChange={e => set('time', e.target.value)}
+                className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-navy mb-1">Type</label>
+              <select
+                value={form.type}
+                onChange={e => set('type', e.target.value)}
+                className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent bg-white"
+              >
+                {TYPE_OPTIONS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-navy mb-1">Durée (min)</label>
+              <input
+                type="number"
+                min="15"
+                step="15"
+                value={form.duration_minutes}
+                onChange={e => set('duration_minutes', e.target.value)}
+                className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-navy mb-1">Description</label>
+            <textarea
+              value={form.description}
+              onChange={e => set('description', e.target.value)}
+              rows={3}
+              placeholder="Détails du rendez-vous..."
+              className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent resize-none"
+            />
+          </div>
+          <div className="flex gap-3 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 px-4 py-2.5 text-sm font-medium rounded-xl border border-border text-text-secondary hover:bg-gray-50 transition-colors"
+            >
+              Annuler
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex-1 px-4 py-2.5 text-sm font-medium rounded-xl bg-accent text-white hover:bg-accent/90 transition-colors disabled:opacity-50"
+            >
+              {saving ? 'Enregistrement...' : 'Créer le RDV'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
