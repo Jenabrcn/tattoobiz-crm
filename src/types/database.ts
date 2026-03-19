@@ -26,6 +26,7 @@ export interface Database {
           studio_name?: string | null
           created_at?: string
         }
+        Relationships: []
       }
       clients: {
         Row: {
@@ -64,6 +65,7 @@ export interface Database {
           notes?: string | null
           created_at?: string
         }
+        Relationships: []
       }
       appointments: {
         Row: {
@@ -99,6 +101,7 @@ export interface Database {
           description?: string | null
           created_at?: string
         }
+        Relationships: []
       }
       finances: {
         Row: {
@@ -137,6 +140,7 @@ export interface Database {
           type?: 'revenu' | 'depense' | 'arrhes'
           created_at?: string
         }
+        Relationships: []
       }
       photos: {
         Row: {
@@ -160,6 +164,7 @@ export interface Database {
           description?: string | null
           created_at?: string
         }
+        Relationships: []
       }
     }
     Views: {
