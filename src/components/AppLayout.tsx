@@ -53,8 +53,8 @@ export function AppLayout() {
         {/* Logo */}
         <div className="p-6 pb-8">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-accent rounded-lg flex items-center justify-center text-white font-bold text-xs">
-              TB
+            <div className="w-9 h-9 bg-accent rounded-lg flex items-center justify-center overflow-hidden p-1">
+              <img src="/logo-tatboard.svg" alt="Tatboard" className="w-full h-full object-contain" />
             </div>
             <div>
               <span className="text-lg font-semibold text-navy">Tatboard</span>
