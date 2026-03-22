@@ -93,7 +93,7 @@ export default function LoginPage() {
           {/* Logo */}
           <div className="flex items-center gap-3 mb-16">
             <div className="w-10 h-10 bg-accent rounded-lg flex items-center justify-center overflow-hidden p-1">
-              <img src="/logo-tatboard.svg" alt="Tatboard" className="w-full h-full object-contain" />
+              <img src="/logo-tatboard.png" alt="Tatboard" className="w-full h-full object-contain" />
             </div>
             <span className="text-xl font-semibold text-navy">
               Tatboard
@@ -142,7 +142,7 @@ export default function LoginPage() {
           {/* Mobile Logo */}
           <div className="flex items-center gap-3 mb-8 lg:hidden">
             <div className="w-10 h-10 bg-accent rounded-lg flex items-center justify-center overflow-hidden p-1">
-              <img src="/logo-tatboard.svg" alt="Tatboard" className="w-full h-full object-contain" />
+              <img src="/logo-tatboard.png" alt="Tatboard" className="w-full h-full object-contain" />
             </div>
             <span className="text-xl font-semibold text-navy">
               Tatboard
