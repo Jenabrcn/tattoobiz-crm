@@ -57,8 +57,7 @@ export function AppLayout() {
               TB
             </div>
             <div>
-              <span className="text-lg font-semibold text-navy">TattooBiz</span>
-              <span className="text-lg font-normal text-text-muted ml-1">CRM</span>
+              <span className="text-lg font-semibold text-navy">Tatboard</span>
             </div>
           </div>
         </div>

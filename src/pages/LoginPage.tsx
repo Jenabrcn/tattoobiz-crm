@@ -5,10 +5,10 @@ import { useAuth } from '../contexts/AuthContext'
 import { Users, Calendar, DollarSign, LayoutDashboard, Lock } from 'lucide-react'
 
 const features = [
-  { icon: Users, label: 'Fiches clients', desc: 'Centralisez toutes les infos' },
-  { icon: Calendar, label: 'Agenda', desc: 'Gérez vos rendez-vous' },
-  { icon: DollarSign, label: 'Finances', desc: 'Suivez vos revenus' },
-  { icon: LayoutDashboard, label: 'Dashboard', desc: 'Vue d\'ensemble' },
+  { icon: Users, label: 'Fiches clients', desc: 'Tout centralisé dans Tatboard' },
+  { icon: Calendar, label: 'Agenda', desc: 'Planifiez via Tatboard' },
+  { icon: DollarSign, label: 'Finances', desc: 'Suivez vos revenus sur Tatboard' },
+  { icon: LayoutDashboard, label: 'Dashboard', desc: 'Tatboard en un coup d\'œil' },
 ]
 
 export default function LoginPage() {
@@ -96,15 +96,15 @@ export default function LoginPage() {
               TB
             </div>
             <span className="text-xl font-semibold text-navy">
-              TattooBiz <span className="font-normal text-text-secondary">CRM</span>
+              Tatboard
             </span>
           </div>
 
           {/* Hero Text */}
           <h1 className="font-display text-4xl leading-tight text-navy mb-6">
-            Pilote ton{' '}
+            Piloter son{' '}
             <span className="text-accent">Tattoo Biz</span>{' '}
-            au même endroit.
+            n'a jamais été aussi simple.
           </h1>
           <p className="text-text-secondary text-lg leading-relaxed mb-12 max-w-md">
             Clients, agenda, finances, tout centralisé. L'outil pensé par un tatoueur, pour les tatoueurs.
@@ -145,7 +145,7 @@ export default function LoginPage() {
               TB
             </div>
             <span className="text-xl font-semibold text-navy">
-              TattooBiz <span className="font-normal text-text-secondary">CRM</span>
+              Tatboard
             </span>
           </div>
 
