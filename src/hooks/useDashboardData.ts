@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -84,237 +84,230 @@ function calcFinances(rows: any[]): MonthlyFinance {
   return { revenue, expenses, net: revenue - expenses }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function enrichAppointments(appts: any[], clients: any[]) {
-  const map = new Map(clients.map((c: { id: string; first_name: string; last_name: string }) => [c.id, c]))
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return appts.map((a: any) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const c = map.get(a.client_id) as any
-    return {
-      id: a.id,
-      date: a.date,
-      time: a.time,
-      description: a.description,
-      type: a.type,
-      client_first_name: c?.first_name || '',
-      client_last_name: c?.last_name || '',
-    }
-  })
+interface CachedData {
+  firstName: string
+  todayAppointments: TodayAppointment[]
+  currentMonth: MonthlyFinance
+  previousMonth: MonthlyFinance
+  clientsThisMonth: number
+  clientsLastMonth: number
+  totalClients: number
+  regularClients: number
+  newClients: number
+  activeProjects: number
+  upcomingAppointments: UpcomingAppointment[]
+  recentClients: RecentClient[]
+  revenueSeries: PeriodPoint[]
+  clientsSeries: PeriodPoint[]
+  periodFilter: PeriodFilter
+  fetchedAt: number
 }
+
+// Module-level cache so it persists across navigations
+let dataCache: CachedData | null = null
+const CACHE_TTL = 60_000 // 1 minute
 
 export function useDashboardData(): DashboardData {
   const { user } = useAuth()
-  const [loading, setLoading] = useState(true)
-  const [firstName, setFirstName] = useState('')
-  const [todayAppointments, setTodayAppointments] = useState<TodayAppointment[]>([])
-  const [currentMonth, setCurrentMonth] = useState<MonthlyFinance>({ revenue: 0, expenses: 0, net: 0 })
-  const [previousMonth, setPreviousMonth] = useState<MonthlyFinance>({ revenue: 0, expenses: 0, net: 0 })
-  const [clientsThisMonth, setClientsThisMonth] = useState(0)
-  const [clientsLastMonth, setClientsLastMonth] = useState(0)
-  const [totalClients, setTotalClients] = useState(0)
-  const [regularClients, setRegularClients] = useState(0)
-  const [newClients, setNewClients] = useState(0)
-  const [activeProjects, setActiveProjects] = useState(0)
-  const [upcomingAppointments, setUpcomingAppointments] = useState<UpcomingAppointment[]>([])
-  const [recentClients, setRecentClients] = useState<RecentClient[]>([])
-  const [revenueSeries, setRevenueSeries] = useState<PeriodPoint[]>([])
-  const [clientsSeries, setClientsSeries] = useState<PeriodPoint[]>([])
-  const [periodFilter, setPeriodFilter] = useState<PeriodFilter>('month')
+  const [loading, setLoading] = useState(!dataCache)
+  const [firstName, setFirstName] = useState(dataCache?.firstName ?? '')
+  const [todayAppointments, setTodayAppointments] = useState<TodayAppointment[]>(dataCache?.todayAppointments ?? [])
+  const [currentMonth, setCurrentMonth] = useState<MonthlyFinance>(dataCache?.currentMonth ?? { revenue: 0, expenses: 0, net: 0 })
+  const [previousMonth, setPreviousMonth] = useState<MonthlyFinance>(dataCache?.previousMonth ?? { revenue: 0, expenses: 0, net: 0 })
+  const [clientsThisMonth, setClientsThisMonth] = useState(dataCache?.clientsThisMonth ?? 0)
+  const [clientsLastMonth, setClientsLastMonth] = useState(dataCache?.clientsLastMonth ?? 0)
+  const [totalClients, setTotalClients] = useState(dataCache?.totalClients ?? 0)
+  const [regularClients, setRegularClients] = useState(dataCache?.regularClients ?? 0)
+  const [newClients, setNewClients] = useState(dataCache?.newClients ?? 0)
+  const [activeProjects, setActiveProjects] = useState(dataCache?.activeProjects ?? 0)
+  const [upcomingAppointments, setUpcomingAppointments] = useState<UpcomingAppointment[]>(dataCache?.upcomingAppointments ?? [])
+  const [recentClients, setRecentClients] = useState<RecentClient[]>(dataCache?.recentClients ?? [])
+  const [revenueSeries, setRevenueSeries] = useState<PeriodPoint[]>(dataCache?.revenueSeries ?? [])
+  const [clientsSeries, setClientsSeries] = useState<PeriodPoint[]>(dataCache?.clientsSeries ?? [])
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilter>(dataCache?.periodFilter ?? 'month')
+  const fetchIdRef = useRef(0)
 
   useEffect(() => {
     if (!user) return
-    fetchAll()
+
+    // Use cache if fresh and same period filter
+    if (dataCache && dataCache.periodFilter === periodFilter && Date.now() - dataCache.fetchedAt < CACHE_TTL) {
+      setLoading(false)
+      return
+    }
+
+    const fetchId = ++fetchIdRef.current
+    fetchAll(fetchId)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, periodFilter])
 
-  async function fetchAll() {
+  async function fetchAll(fetchId: number) {
     if (!user) return
-    setLoading(true)
+    // Only show loading spinner on first load, not on background refreshes
+    if (!dataCache) setLoading(true)
 
     const now = new Date()
     const today = fmtDate(now)
     const monthStart = fmtDate(startOfMonth(now))
     const prevMonthStart = fmtDate(startOfMonth(new Date(now.getFullYear(), now.getMonth() - 1, 1)))
     const prevMonthEnd = fmtDate(new Date(now.getFullYear(), now.getMonth(), 0))
+    const thirtyDaysAgo = fmtDate(new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000))
 
-    // Profile
-    const { data: profile } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', user.id)
-      .single() as { data: { first_name: string | null } | null }
-    setFirstName(profile?.first_name || user.email?.split('@')[0] || '')
-
-    // Today's appointments
-    const { data: todayAppts } = await supabase
-      .from('appointments')
-      .select('*')
-      .eq('date', today)
-      .order('time') as { data: { id: string; client_id: string; time: string; description: string | null; type: string }[] | null }
-
-    if (todayAppts && todayAppts.length > 0) {
-      const clientIds = [...new Set(todayAppts.map(a => a.client_id))]
-      const { data: clients } = await supabase
-        .from('clients')
-        .select('*')
-        .in('id', clientIds)
-      setTodayAppointments(enrichAppointments(todayAppts, clients || []))
-    } else {
-      setTodayAppointments([])
+    // Compute time series date range
+    let seriesStart: Date
+    let groupBy: 'day' | 'week' | 'month'
+    switch (periodFilter) {
+      case 'month': seriesStart = startOfMonth(now); groupBy = 'day'; break
+      case '30d': seriesStart = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000); groupBy = 'day'; break
+      case '3m': seriesStart = new Date(now.getFullYear(), now.getMonth() - 3, 1); groupBy = 'week'; break
+      case '12m': seriesStart = new Date(now.getFullYear() - 1, now.getMonth(), 1); groupBy = 'month'; break
     }
 
-    // Current month finances
-    const { data: curFinances } = await supabase
-      .from('finances')
-      .select('*')
-      .gte('date', monthStart)
-      .lte('date', today)
-    setCurrentMonth(calcFinances((curFinances || []) as unknown[]))
+    // Use the earliest date needed across all finance queries
+    const financeStartDate = new Date(Math.min(seriesStart.getTime(), new Date(prevMonthStart).getTime()))
+    const financeStart = fmtDate(financeStartDate)
 
-    // Previous month finances
-    const { data: prevFinances } = await supabase
-      .from('finances')
-      .select('*')
-      .gte('date', prevMonthStart)
-      .lte('date', prevMonthEnd)
-    setPreviousMonth(calcFinances((prevFinances || []) as unknown[]))
+    // 4 parallel queries instead of 15+ sequential ones
+    const [profileResult, clientsResult, appointmentsResult, financesResult] = await Promise.all([
+      supabase
+        .from('users')
+        .select('first_name')
+        .eq('id', user.id)
+        .single(),
+      supabase
+        .from('clients')
+        .select('id, first_name, last_name, tag, email, instagram, created_at')
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('appointments')
+        .select('id, client_id, date, time, description, type')
+        .order('date')
+        .order('time'),
+      supabase
+        .from('finances')
+        .select('type, date, amount')
+        .gte('date', financeStart)
+        .lte('date', today)
+        .order('date'),
+    ])
 
-    // Clients counts
-    const { count: curClients } = await supabase
-      .from('clients')
-      .select('*', { count: 'exact', head: true })
-      .gte('created_at', monthStart)
-    setClientsThisMonth(curClients || 0)
+    // Stale fetch guard
+    if (fetchId !== fetchIdRef.current) return
 
-    const { count: prevClients } = await supabase
-      .from('clients')
-      .select('*', { count: 'exact', head: true })
-      .gte('created_at', prevMonthStart)
-      .lte('created_at', prevMonthEnd)
-    setClientsLastMonth(prevClients || 0)
+    // --- Profile ---
+    const profile = profileResult.data as { first_name: string | null } | null
+    const fName = profile?.first_name || user.email?.split('@')[0] || ''
 
-    const { count: total } = await supabase
-      .from('clients')
-      .select('*', { count: 'exact', head: true })
-    setTotalClients(total || 0)
+    // --- Clients (compute all counts from single query) ---
+    const allClients = (clientsResult.data || []) as RecentClient[]
+    const clientMap = new Map(allClients.map(c => [c.id, c]))
+    const total = allClients.length
+    const recent5 = allClients.slice(0, 5)
+    const curClients = allClients.filter(c => c.created_at >= monthStart).length
+    const prevClientsCount = allClients.filter(c => c.created_at >= prevMonthStart && c.created_at <= prevMonthEnd + 'T23:59:59').length
+    const newC = allClients.filter(c => c.created_at >= thirtyDaysAgo).length
 
-    const thirtyDaysAgo = fmtDate(new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000))
-    const { count: newC } = await supabase
-      .from('clients')
-      .select('*', { count: 'exact', head: true })
-      .gte('created_at', thirtyDaysAgo)
-    setNewClients(newC || 0)
+    // --- Appointments (compute today, upcoming, regular, active from single query) ---
+    const allAppts = (appointmentsResult.data || []) as { id: string; client_id: string; date: string; time: string; description: string | null; type: string }[]
+
+    const todayAppts = allAppts.filter(a => a.date === today)
+    const futureAppts = allAppts.filter(a => a.date >= today)
+    const upcoming5 = futureAppts.slice(0, 5)
+
+    // Enrich with client names
+    const enrichWithClients = (appts: typeof allAppts) =>
+      appts.map(a => {
+        const c = clientMap.get(a.client_id)
+        return {
+          id: a.id,
+          date: a.date,
+          time: a.time,
+          description: a.description,
+          type: a.type,
+          client_first_name: c?.first_name || '',
+          client_last_name: c?.last_name || '',
+        }
+      })
+
+    const todayEnriched = enrichWithClients(todayAppts)
+    const upcomingEnriched = enrichWithClients(upcoming5)
 
     // Regular clients (>1 appointment)
-    const { data: allAppts } = await supabase
-      .from('appointments')
-      .select('*') as { data: { client_id: string }[] | null }
-    if (allAppts) {
-      const countMap = new Map<string, number>()
-      allAppts.forEach(a => countMap.set(a.client_id, (countMap.get(a.client_id) || 0) + 1))
-      setRegularClients([...countMap.values()].filter(v => v > 1).length)
-    }
+    const apptCountMap = new Map<string, number>()
+    allAppts.forEach(a => apptCountMap.set(a.client_id, (apptCountMap.get(a.client_id) || 0) + 1))
+    const regulars = [...apptCountMap.values()].filter(v => v > 1).length
 
-    // Active projects
-    const { count: activeP } = await supabase
-      .from('appointments')
-      .select('*', { count: 'exact', head: true })
-      .gte('date', today)
-    setActiveProjects(activeP || 0)
+    // Active projects (future appointments count)
+    const activeP = futureAppts.length
 
-    // Upcoming appointments (next 5)
-    const { data: upcoming } = await supabase
-      .from('appointments')
-      .select('*')
-      .gte('date', today)
-      .order('date')
-      .order('time')
-      .limit(5) as { data: { id: string; client_id: string; date: string; time: string; description: string | null; type: string }[] | null }
+    // --- Finances (compute current month, previous month, time series from single query) ---
+    const allFinances = (financesResult.data || []) as { type: string; date: string; amount: number }[]
+    const curMonthFinances = allFinances.filter(f => f.date >= monthStart && f.date <= today)
+    const prevMonthFinances = allFinances.filter(f => f.date >= prevMonthStart && f.date <= prevMonthEnd)
 
-    if (upcoming && upcoming.length > 0) {
-      const clientIds = [...new Set(upcoming.map(a => a.client_id))]
-      const { data: clients } = await supabase
-        .from('clients')
-        .select('*')
-        .in('id', clientIds)
-      setUpcomingAppointments(enrichAppointments(upcoming, clients || []))
-    } else {
-      setUpcomingAppointments([])
-    }
+    const seriesStartStr = fmtDate(seriesStart)
+    const seriesFinances = allFinances.filter(f => f.date >= seriesStartStr && f.date <= today)
+    const seriesClients = allClients.filter(c => c.created_at.split('T')[0] >= seriesStartStr && c.created_at.split('T')[0] <= today)
 
-    // Recent clients
-    const { data: recent } = await supabase
-      .from('clients')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(5) as { data: RecentClient[] | null }
-    setRecentClients(recent || [])
-
-    // Time series
-    await fetchTimeSeries(now)
-
-    setLoading(false)
-  }
-
-  async function fetchTimeSeries(now: Date) {
-    let startDate: Date
-    let groupBy: 'day' | 'week' | 'month'
-
-    switch (periodFilter) {
-      case 'month':
-        startDate = startOfMonth(now)
-        groupBy = 'day'
-        break
-      case '30d':
-        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-        groupBy = 'day'
-        break
-      case '3m':
-        startDate = new Date(now.getFullYear(), now.getMonth() - 3, 1)
-        groupBy = 'week'
-        break
-      case '12m':
-        startDate = new Date(now.getFullYear() - 1, now.getMonth(), 1)
-        groupBy = 'month'
-        break
-    }
-
-    const start = fmtDate(startDate)
-    const end = fmtDate(now)
-
-    const { data: finances } = await supabase
-      .from('finances')
-      .select('*')
-      .gte('date', start)
-      .lte('date', end)
-      .order('date') as { data: { type: string; date: string; amount: number }[] | null }
-
-    const { data: clients } = await supabase
-      .from('clients')
-      .select('*')
-      .gte('created_at', start)
-      .lte('created_at', end)
-      .order('created_at') as { data: { created_at: string }[] | null }
-
+    // Build time series
     const revenueMap = new Map<string, number>()
-    const clientsMap = new Map<string, number>()
+    const clientsSeriesMap = new Map<string, number>()
 
-    ;(finances || []).forEach(f => {
+    seriesFinances.forEach(f => {
       if (f.type === 'revenu' || f.type === 'arrhes') {
         const key = getGroupKey(f.date, groupBy)
         revenueMap.set(key, (revenueMap.get(key) || 0) + Number(f.amount))
       }
     })
 
-    ;(clients || []).forEach(c => {
+    seriesClients.forEach(c => {
       const key = getGroupKey(c.created_at.split('T')[0], groupBy)
-      clientsMap.set(key, (clientsMap.get(key) || 0) + 1)
+      clientsSeriesMap.set(key, (clientsSeriesMap.get(key) || 0) + 1)
     })
 
-    const allKeys = generateKeys(startDate, now, groupBy)
-    setRevenueSeries(allKeys.map(k => ({ label: k, value: revenueMap.get(k) || 0 })))
-    setClientsSeries(allKeys.map(k => ({ label: k, value: clientsMap.get(k) || 0 })))
+    const allKeys = generateKeys(seriesStart, now, groupBy)
+    const revSeries = allKeys.map(k => ({ label: k, value: revenueMap.get(k) || 0 }))
+    const cliSeries = allKeys.map(k => ({ label: k, value: clientsSeriesMap.get(k) || 0 }))
+
+    // Stale fetch guard (check again after processing)
+    if (fetchId !== fetchIdRef.current) return
+
+    // --- Update all state ---
+    setFirstName(fName)
+    setTodayAppointments(todayEnriched)
+    setCurrentMonth(calcFinances(curMonthFinances))
+    setPreviousMonth(calcFinances(prevMonthFinances))
+    setClientsThisMonth(curClients)
+    setClientsLastMonth(prevClientsCount)
+    setTotalClients(total)
+    setRegularClients(regulars)
+    setNewClients(newC)
+    setActiveProjects(activeP)
+    setUpcomingAppointments(upcomingEnriched)
+    setRecentClients(recent5)
+    setRevenueSeries(revSeries)
+    setClientsSeries(cliSeries)
+    setLoading(false)
+
+    // Update cache
+    dataCache = {
+      firstName: fName,
+      todayAppointments: todayEnriched,
+      currentMonth: calcFinances(curMonthFinances),
+      previousMonth: calcFinances(prevMonthFinances),
+      clientsThisMonth: curClients,
+      clientsLastMonth: prevClientsCount,
+      totalClients: total,
+      regularClients: regulars,
+      newClients: newC,
+      activeProjects: activeP,
+      upcomingAppointments: upcomingEnriched,
+      recentClients: recent5,
+      revenueSeries: revSeries,
+      clientsSeries: cliSeries,
+      periodFilter,
+      fetchedAt: Date.now(),
+    }
   }
 
   return {
