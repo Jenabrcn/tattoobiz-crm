@@ -43,6 +43,7 @@ interface ClientData {
   phone: string | null
   instagram: string | null
   tag: string | null
+  city: string | null
   notes: string | null
   created_at: string
 }
@@ -285,6 +286,7 @@ export default function ClientDetailPage() {
             <InfoRow label="Téléphone" value={client.phone || '—'} />
             <InfoRow label="Email" value={client.email || '—'} />
             <InfoRow label="Instagram" value={client.instagram || '—'} />
+            <InfoRow label="Ville" value={client.city || '—'} />
             <InfoRow label="Client depuis" value={memberSince} />
           </div>
         </div>

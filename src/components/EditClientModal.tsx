@@ -10,6 +10,7 @@ interface ClientData {
   phone: string | null
   instagram: string | null
   tag: string | null
+  city: string | null
   notes: string | null
 }
 
@@ -30,6 +31,7 @@ export default function EditClientModal({ open, client, onClose, onUpdated }: Pr
     email: '',
     phone: '',
     instagram: '',
+    city: '',
     tag: '',
     notes: '',
   })
@@ -42,6 +44,7 @@ export default function EditClientModal({ open, client, onClose, onUpdated }: Pr
         email: client.email || '',
         phone: client.phone || '',
         instagram: client.instagram || '',
+        city: client.city || '',
         tag: client.tag || 'Nouveau',
         notes: client.notes || '',
       })
@@ -63,6 +66,7 @@ export default function EditClientModal({ open, client, onClose, onUpdated }: Pr
         email: form.email.trim() || null,
         phone: form.phone.trim() || null,
         instagram: form.instagram.trim() || null,
+        city: form.city.trim() || null,
         tag: form.tag || null,
         notes: form.notes.trim() || null,
       })
@@ -130,6 +134,15 @@ export default function EditClientModal({ open, client, onClose, onUpdated }: Pr
               value={form.instagram}
               onChange={e => set('instagram', e.target.value)}
               placeholder="@pseudo"
+              className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-navy mb-1">Ville</label>
+            <input
+              value={form.city}
+              onChange={e => set('city', e.target.value)}
+              placeholder="Paris, Lyon..."
               className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
             />
           </div>

@@ -182,7 +182,10 @@ export default function ClientsPage() {
                           </div>
                           <div>
                             <p className="text-sm font-medium text-navy">{fullName}</p>
-                            <p className="text-xs text-text-muted">{client.email || '—'}</p>
+                            <p className="text-xs text-text-muted">
+                              {client.email || '—'}
+                              {client.city && <span className="ml-2">· {client.city}</span>}
+                            </p>
                           </div>
                         </div>
                       </td>
