@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate, Navigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { Users, Calendar, DollarSign, LayoutDashboard, Lock, Eye, EyeOff } from 'lucide-react'
+import { Users, Calendar, DollarSign, LayoutDashboard, Lock, Eye, EyeOff, CheckCircle } from 'lucide-react'
 
 const features = [
   { icon: Users, label: 'Fiches clients', desc: 'Tout centralisé dans Tatboard' },
@@ -10,6 +10,32 @@ const features = [
   { icon: DollarSign, label: 'Finances', desc: 'Suivez vos revenus sur Tatboard' },
   { icon: LayoutDashboard, label: 'Dashboard', desc: 'Tatboard en un coup d\'œil' },
 ]
+
+function getPasswordStrength(pw: string): { level: 0 | 1 | 2 | 3; label: string; color: string } {
+  if (!pw) return { level: 0, label: '', color: '' }
+  if (pw.length < 6) return { level: 1, label: 'Faible', color: '#dc2626' }
+  const hasUpper = /[A-Z]/.test(pw)
+  const hasDigit = /\d/.test(pw)
+  const hasSpecial = /[^A-Za-z0-9]/.test(pw)
+  if (pw.length >= 8 && hasUpper && hasDigit && hasSpecial) return { level: 3, label: 'Fort', color: '#16a34a' }
+  if (pw.length >= 6) return { level: 2, label: 'Moyen', color: '#f59e0b' }
+  return { level: 1, label: 'Faible', color: '#dc2626' }
+}
+
+function translateAuthError(message: string): string {
+  const translations: Record<string, string> = {
+    'Invalid login credentials': 'Email ou mot de passe incorrect.',
+    'Email not confirmed': 'Tu dois confirmer ton email avant de te connecter. Vérifie ta boîte mail.',
+    'User already registered': 'Un compte existe déjà avec cet email.',
+    'Password should be at least 6 characters': 'Le mot de passe doit contenir au moins 6 caractères.',
+    'Unable to validate email address: invalid format': 'Format d\'email invalide.',
+    'Signup requires a valid password': 'Un mot de passe valide est requis.',
+    'Rate limit exceeded': 'Trop de tentatives. Réessaie dans quelques minutes.',
+    'For security purposes, you can only request this after 60 seconds.': 'Pour des raisons de sécurité, réessaie dans 60 secondes.',
+    'New password should be different from the old password.': 'Le nouveau mot de passe doit être différent de l\'ancien.',
+  }
+  return translations[message] || message
+}
 
 export default function LoginPage() {
   const { user, loading } = useAuth()
@@ -23,6 +49,7 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [signupSuccess, setSignupSuccess] = useState(false)
 
   if (loading) {
     return (
@@ -44,7 +71,7 @@ export default function LoginPage() {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
 
     if (error) {
-      setError(error.message)
+      setError(translateAuthError(error.message))
       setSubmitting(false)
     } else {
       navigate('/dashboard')
@@ -56,7 +83,7 @@ export default function LoginPage() {
     setError(null)
     setSubmitting(true)
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -69,15 +96,28 @@ export default function LoginPage() {
     })
 
     if (error) {
-      setError(error.message)
+      setError(translateAuthError(error.message))
       setSubmitting(false)
-    } else {
-      navigate('/dashboard')
+      return
     }
+
+    // Insert into users table
+    if (data.user) {
+      await supabase.from('users').upsert({
+        id: data.user.id,
+        email,
+        first_name: firstName,
+        last_name: lastName,
+        studio_name: studioName || null,
+      })
+    }
+
+    setSubmitting(false)
+    setSignupSuccess(true)
   }
 
-  const switchToSignup = () => { setActiveTab('signup'); setError(null) }
-  const switchToLogin = () => { setActiveTab('login'); setError(null) }
+  const switchToSignup = () => { setActiveTab('signup'); setError(null); setSignupSuccess(false) }
+  const switchToLogin = () => { setActiveTab('login'); setError(null); setSignupSuccess(false) }
 
   return (
     <div className="flex min-h-screen">
@@ -235,6 +275,28 @@ export default function LoginPage() {
                   </button>
                 </p>
               </form>
+            ) : signupSuccess ? (
+              /* === SIGNUP SUCCESS === */
+              <div className="text-center py-4 space-y-4">
+                <div className="flex justify-center">
+                  <CheckCircle className="w-12 h-12 text-green" />
+                </div>
+                <h2 className="text-lg font-semibold text-navy">Inscription réussie ! 🎉</h2>
+                <p className="text-sm text-text-secondary leading-relaxed">
+                  Tu vas recevoir un email de confirmation dans les prochaines minutes.
+                  Clique sur le lien dans l'email pour activer ton compte.
+                </p>
+                <p className="text-sm text-text-muted">
+                  Pense à vérifier tes spams si tu ne vois rien.
+                </p>
+                <button
+                  type="button"
+                  onClick={switchToLogin}
+                  className="w-full py-3 px-4 bg-accent text-white font-semibold rounded-xl hover:bg-accent/90 transition-colors text-sm mt-4"
+                >
+                  Aller à la connexion →
+                </button>
+              </div>
             ) : (
               /* === SIGNUP FORM === */
               <form onSubmit={handleSignUp} className="space-y-5">
@@ -316,6 +378,23 @@ export default function LoginPage() {
                       {showPassword ? <EyeOff className="w-4.5 h-4.5" /> : <Eye className="w-4.5 h-4.5" />}
                     </button>
                   </div>
+                  {password && (() => {
+                    const strength = getPasswordStrength(password)
+                    return (
+                      <div className="mt-2 space-y-1">
+                        <div className="flex gap-1">
+                          {[1, 2, 3].map(i => (
+                            <div
+                              key={i}
+                              className="h-1 flex-1 rounded-full transition-colors"
+                              style={{ backgroundColor: i <= strength.level ? strength.color : '#e5e7eb' }}
+                            />
+                          ))}
+                        </div>
+                        <p className="text-xs" style={{ color: strength.color }}>{strength.label}</p>
+                      </div>
+                    )
+                  })()}
                 </div>
 
                 {error && <p className="text-sm text-red">{error}</p>}
