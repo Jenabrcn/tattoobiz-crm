@@ -20,7 +20,7 @@ const navItems = [
 ]
 
 export function AppLayout() {
-  const { user, signOut } = useAuth()
+  const { user, signOut, profileVersion } = useAuth()
   const navigate = useNavigate()
   const [profile, setProfile] = useState<{ first_name: string | null; last_name: string | null; studio_name: string | null } | null>(null)
 
@@ -34,10 +34,10 @@ export function AppLayout() {
       .then(({ data }) => {
         if (data) setProfile(data)
       })
-  }, [user])
+  }, [user, profileVersion])
 
-  const handleSignOut = async () => {
-    await signOut()
+  const handleSignOut = () => {
+    signOut()
     navigate('/login')
   }
 

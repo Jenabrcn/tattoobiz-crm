@@ -46,6 +46,8 @@ export type PeriodFilter = 'month' | '30d' | '3m' | '12m'
 
 export interface DashboardData {
   loading: boolean
+  error: string | null
+  retry: () => void
   firstName: string
   todayAppointments: TodayAppointment[]
   currentMonth: MonthlyFinance
@@ -84,67 +86,57 @@ function calcFinances(rows: any[]): MonthlyFinance {
   return { revenue, expenses, net: revenue - expenses }
 }
 
-interface CachedData {
-  firstName: string
-  todayAppointments: TodayAppointment[]
-  currentMonth: MonthlyFinance
-  previousMonth: MonthlyFinance
-  clientsThisMonth: number
-  clientsLastMonth: number
-  totalClients: number
-  regularClients: number
-  newClients: number
-  activeProjects: number
-  upcomingAppointments: UpcomingAppointment[]
-  recentClients: RecentClient[]
-  revenueSeries: PeriodPoint[]
-  clientsSeries: PeriodPoint[]
-  periodFilter: PeriodFilter
-  fetchedAt: number
-}
+const FETCH_TIMEOUT = 10_000
 
-// Module-level cache so it persists across navigations
-let dataCache: CachedData | null = null
-const CACHE_TTL = 60_000 // 1 minute
+function withTimeout<T>(promise: PromiseLike<T>): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('TIMEOUT')), FETCH_TIMEOUT)
+    ),
+  ])
+}
 
 export function useDashboardData(): DashboardData {
   const { user } = useAuth()
-  const [loading, setLoading] = useState(!dataCache)
-  const [firstName, setFirstName] = useState(dataCache?.firstName ?? '')
-  const [todayAppointments, setTodayAppointments] = useState<TodayAppointment[]>(dataCache?.todayAppointments ?? [])
-  const [currentMonth, setCurrentMonth] = useState<MonthlyFinance>(dataCache?.currentMonth ?? { revenue: 0, expenses: 0, net: 0 })
-  const [previousMonth, setPreviousMonth] = useState<MonthlyFinance>(dataCache?.previousMonth ?? { revenue: 0, expenses: 0, net: 0 })
-  const [clientsThisMonth, setClientsThisMonth] = useState(dataCache?.clientsThisMonth ?? 0)
-  const [clientsLastMonth, setClientsLastMonth] = useState(dataCache?.clientsLastMonth ?? 0)
-  const [totalClients, setTotalClients] = useState(dataCache?.totalClients ?? 0)
-  const [regularClients, setRegularClients] = useState(dataCache?.regularClients ?? 0)
-  const [newClients, setNewClients] = useState(dataCache?.newClients ?? 0)
-  const [activeProjects, setActiveProjects] = useState(dataCache?.activeProjects ?? 0)
-  const [upcomingAppointments, setUpcomingAppointments] = useState<UpcomingAppointment[]>(dataCache?.upcomingAppointments ?? [])
-  const [recentClients, setRecentClients] = useState<RecentClient[]>(dataCache?.recentClients ?? [])
-  const [revenueSeries, setRevenueSeries] = useState<PeriodPoint[]>(dataCache?.revenueSeries ?? [])
-  const [clientsSeries, setClientsSeries] = useState<PeriodPoint[]>(dataCache?.clientsSeries ?? [])
-  const [periodFilter, setPeriodFilter] = useState<PeriodFilter>(dataCache?.periodFilter ?? 'month')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [firstName, setFirstName] = useState('')
+  const [todayAppointments, setTodayAppointments] = useState<TodayAppointment[]>([])
+  const [currentMonth, setCurrentMonth] = useState<MonthlyFinance>({ revenue: 0, expenses: 0, net: 0 })
+  const [previousMonth, setPreviousMonth] = useState<MonthlyFinance>({ revenue: 0, expenses: 0, net: 0 })
+  const [clientsThisMonth, setClientsThisMonth] = useState(0)
+  const [clientsLastMonth, setClientsLastMonth] = useState(0)
+  const [totalClients, setTotalClients] = useState(0)
+  const [regularClients, setRegularClients] = useState(0)
+  const [newClients, setNewClients] = useState(0)
+  const [activeProjects, setActiveProjects] = useState(0)
+  const [upcomingAppointments, setUpcomingAppointments] = useState<UpcomingAppointment[]>([])
+  const [recentClients, setRecentClients] = useState<RecentClient[]>([])
+  const [revenueSeries, setRevenueSeries] = useState<PeriodPoint[]>([])
+  const [clientsSeries, setClientsSeries] = useState<PeriodPoint[]>([])
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilter>('month')
   const fetchIdRef = useRef(0)
+  const [retryKey, setRetryKey] = useState(0)
+
+  const retry = () => {
+    setError(null)
+    setLoading(true)
+    setRetryKey(k => k + 1)
+  }
 
   useEffect(() => {
     if (!user) return
 
-    // Use cache if fresh and same period filter
-    if (dataCache && dataCache.periodFilter === periodFilter && Date.now() - dataCache.fetchedAt < CACHE_TTL) {
-      setLoading(false)
-      return
-    }
-
     const fetchId = ++fetchIdRef.current
     fetchAll(fetchId)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, periodFilter])
+  }, [user, periodFilter, retryKey])
 
   async function fetchAll(fetchId: number) {
     if (!user) return
-    // Only show loading spinner on first load, not on background refreshes
-    if (!dataCache) setLoading(true)
+    setLoading(true)
+    setError(null)
 
     const now = new Date()
     const today = fmtDate(now)
@@ -167,32 +159,54 @@ export function useDashboardData(): DashboardData {
     const financeStartDate = new Date(Math.min(seriesStart.getTime(), new Date(prevMonthStart).getTime()))
     const financeStart = fmtDate(financeStartDate)
 
-    // 4 parallel queries instead of 15+ sequential ones
-    const [profileResult, clientsResult, appointmentsResult, financesResult] = await Promise.all([
-      supabase
-        .from('users')
-        .select('first_name')
-        .eq('id', user.id)
-        .single(),
-      supabase
-        .from('clients')
-        .select('id, first_name, last_name, tag, email, instagram, created_at')
-        .order('created_at', { ascending: false }),
-      supabase
-        .from('appointments')
-        .select('id, client_id, date, time, description, type')
-        .order('date')
-        .order('time'),
-      supabase
-        .from('finances')
-        .select('type, date, amount')
-        .gte('date', financeStart)
-        .lte('date', today)
-        .order('date'),
-    ])
+    let profileResult, clientsResult, appointmentsResult, financesResult
+    try {
+      // 4 parallel queries with 10s timeout
+      ;[profileResult, clientsResult, appointmentsResult, financesResult] = await withTimeout(Promise.all([
+        supabase
+          .from('users')
+          .select('first_name')
+          .eq('id', user.id)
+          .single(),
+        supabase
+          .from('clients')
+          .select('id, first_name, last_name, tag, email, instagram, created_at')
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('appointments')
+          .select('id, client_id, date, time, description, type')
+          .order('date')
+          .order('time'),
+        supabase
+          .from('finances')
+          .select('type, date, amount')
+          .gte('date', financeStart)
+          .lte('date', today)
+          .order('date'),
+      ]))
+    } catch (err) {
+      if (fetchId !== fetchIdRef.current) return
+      const isTimeout = err instanceof Error && err.message === 'TIMEOUT'
+      setError(isTimeout ? 'La connexion est lente, réessaie.' : 'Erreur de chargement des données.')
+      setLoading(false)
+      return
+    }
 
     // Stale fetch guard
     if (fetchId !== fetchIdRef.current) return
+
+    // Check for Supabase errors (auth expired, RLS, etc.)
+    const queryError = profileResult.error || clientsResult.error || appointmentsResult.error || financesResult.error
+    if (queryError) {
+      // Auth errors → don't show error, ProtectedRoute will redirect
+      if (queryError.message?.includes('JWT') || queryError.message?.includes('token') || queryError.code === 'PGRST301') {
+        supabase.auth.signOut()
+        return
+      }
+      setError('Erreur de chargement des données.')
+      setLoading(false)
+      return
+    }
 
     // --- Profile ---
     const profile = profileResult.data as { first_name: string | null } | null
@@ -247,7 +261,7 @@ export function useDashboardData(): DashboardData {
 
     const seriesStartStr = fmtDate(seriesStart)
     const seriesFinances = allFinances.filter(f => f.date >= seriesStartStr && f.date <= today)
-    const seriesClients = allClients.filter(c => c.created_at.split('T')[0] >= seriesStartStr && c.created_at.split('T')[0] <= today)
+    const seriesClientsList = allClients.filter(c => c.created_at.split('T')[0] >= seriesStartStr && c.created_at.split('T')[0] <= today)
 
     // Build time series
     const revenueMap = new Map<string, number>()
@@ -260,7 +274,7 @@ export function useDashboardData(): DashboardData {
       }
     })
 
-    seriesClients.forEach(c => {
+    seriesClientsList.forEach(c => {
       const key = getGroupKey(c.created_at.split('T')[0], groupBy)
       clientsSeriesMap.set(key, (clientsSeriesMap.get(key) || 0) + 1)
     })
@@ -288,30 +302,13 @@ export function useDashboardData(): DashboardData {
     setRevenueSeries(revSeries)
     setClientsSeries(cliSeries)
     setLoading(false)
-
-    // Update cache
-    dataCache = {
-      firstName: fName,
-      todayAppointments: todayEnriched,
-      currentMonth: calcFinances(curMonthFinances),
-      previousMonth: calcFinances(prevMonthFinances),
-      clientsThisMonth: curClients,
-      clientsLastMonth: prevClientsCount,
-      totalClients: total,
-      regularClients: regulars,
-      newClients: newC,
-      activeProjects: activeP,
-      upcomingAppointments: upcomingEnriched,
-      recentClients: recent5,
-      revenueSeries: revSeries,
-      clientsSeries: cliSeries,
-      periodFilter,
-      fetchedAt: Date.now(),
-    }
+    setError(null)
   }
 
   return {
     loading,
+    error,
+    retry,
     firstName,
     todayAppointments,
     currentMonth,

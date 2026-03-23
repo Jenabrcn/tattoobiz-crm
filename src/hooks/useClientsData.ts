@@ -47,64 +47,70 @@ export function useClientsData() {
     if (!user) return
     setLoading(true)
 
-    // Fetch all clients
-    const { data: clientsData } = await supabase
-      .from('clients')
-      .select('*')
-      .order('created_at', { ascending: false }) as { data: ClientRow[] | null }
+    try {
+      // Fetch all clients
+      const { data: clientsData } = await supabase
+        .from('clients')
+        .select('*')
+        .order('created_at', { ascending: false }) as { data: ClientRow[] | null }
 
-    const allClients = clientsData || []
+      const allClients = clientsData || []
 
-    // Fetch all appointments
-    const { data: appointments } = await supabase
-      .from('appointments')
-      .select('*') as { data: { client_id: string; date: string }[] | null }
+      // Fetch all appointments
+      const { data: appointments } = await supabase
+        .from('appointments')
+        .select('*') as { data: { client_id: string; date: string }[] | null }
 
-    // Fetch all finances (revenues)
-    const { data: finances } = await supabase
-      .from('finances')
-      .select('*') as { data: { client_id: string | null; amount: number; type: string }[] | null }
+      // Fetch all finances (revenues)
+      const { data: finances } = await supabase
+        .from('finances')
+        .select('*') as { data: { client_id: string | null; amount: number; type: string }[] | null }
 
-    // Build maps
-    const lastApptMap = new Map<string, string>()
-    ;(appointments || []).forEach(a => {
-      const cur = lastApptMap.get(a.client_id)
-      if (!cur || a.date > cur) lastApptMap.set(a.client_id, a.date)
-    })
+      // Build maps
+      const lastApptMap = new Map<string, string>()
+      ;(appointments || []).forEach(a => {
+        const cur = lastApptMap.get(a.client_id)
+        if (!cur || a.date > cur) lastApptMap.set(a.client_id, a.date)
+      })
 
-    const spentMap = new Map<string, number>()
-    ;(finances || []).forEach(f => {
-      if (f.client_id && (f.type === 'revenu' || f.type === 'arrhes')) {
-        spentMap.set(f.client_id, (spentMap.get(f.client_id) || 0) + Number(f.amount))
+      const spentMap = new Map<string, number>()
+      ;(finances || []).forEach(f => {
+        if (f.client_id && (f.type === 'revenu' || f.type === 'arrhes')) {
+          spentMap.set(f.client_id, (spentMap.get(f.client_id) || 0) + Number(f.amount))
+        }
+      })
+
+      const enriched: ClientWithStats[] = allClients.map(c => ({
+        ...c,
+        last_appointment: lastApptMap.get(c.id) || null,
+        total_spent: spentMap.get(c.id) || 0,
+      }))
+
+      setClients(enriched)
+      setTotalCount(enriched.length)
+
+      // Tag counts
+      setRegulierCount(enriched.filter(c => c.tag === 'Régulier').length)
+      setProjetCount(enriched.filter(c => c.tag === 'Projet en cours').length)
+      setNouveauCount(enriched.filter(c => c.tag === 'Nouveau').length)
+
+      // Clients this month
+      const now = new Date()
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+      setClientsThisMonth(enriched.filter(c => c.created_at >= monthStart).length)
+
+      // Average basket
+      const allRevenues = (finances || []).filter(f => f.type === 'revenu')
+      if (allRevenues.length > 0) {
+        const totalRev = allRevenues.reduce((s, f) => s + Number(f.amount), 0)
+        setAvgBasket(Math.round(totalRev / allRevenues.length))
+      } else {
+        setAvgBasket(0)
       }
-    })
-
-    const enriched: ClientWithStats[] = allClients.map(c => ({
-      ...c,
-      last_appointment: lastApptMap.get(c.id) || null,
-      total_spent: spentMap.get(c.id) || 0,
-    }))
-
-    setClients(enriched)
-    setTotalCount(enriched.length)
-
-    // Tag counts
-    setRegulierCount(enriched.filter(c => c.tag === 'Régulier').length)
-    setProjetCount(enriched.filter(c => c.tag === 'Projet en cours').length)
-    setNouveauCount(enriched.filter(c => c.tag === 'Nouveau').length)
-
-    // Clients this month
-    const now = new Date()
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
-    setClientsThisMonth(enriched.filter(c => c.created_at >= monthStart).length)
-
-    // Average basket
-    const allRevenues = (finances || []).filter(f => f.type === 'revenu')
-    if (allRevenues.length > 0) {
-      const totalRev = allRevenues.reduce((s, f) => s + Number(f.amount), 0)
-      setAvgBasket(Math.round(totalRev / allRevenues.length))
-    } else {
-      setAvgBasket(0)
+    } catch {
+      // On error, show empty state instead of blocking UI
+      setClients([])
+      setTotalCount(0)
     }
 
     setLoading(false)

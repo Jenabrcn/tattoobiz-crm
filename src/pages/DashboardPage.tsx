@@ -80,6 +80,20 @@ export default function DashboardPage() {
     )
   }
 
+  if (data.error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-4">
+        <p className="text-sm text-text-secondary">{data.error}</p>
+        <button
+          onClick={data.retry}
+          className="px-5 py-2.5 bg-accent text-white text-sm font-medium rounded-xl hover:bg-accent/90 transition-colors"
+        >
+          Rafraîchir
+        </button>
+      </div>
+    )
+  }
+
   const revenueEvo = getEvolution(data.currentMonth.revenue, data.previousMonth.revenue)
   const expenseEvo = getEvolution(data.currentMonth.expenses, data.previousMonth.expenses)
   const netEvo = getEvolution(data.currentMonth.net, data.previousMonth.net)
