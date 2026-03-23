@@ -50,6 +50,10 @@ export default function LoginPage() {
   const [submitting, setSubmitting] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [signupSuccess, setSignupSuccess] = useState(false)
+  const [forgotPassword, setForgotPassword] = useState(false)
+  const [resetEmail, setResetEmail] = useState('')
+  const [resetSent, setResetSent] = useState(false)
+  const [resetError, setResetError] = useState<string | null>(null)
 
   if (loading) {
     return (
@@ -105,8 +109,25 @@ export default function LoginPage() {
     setSignupSuccess(true)
   }
 
-  const switchToSignup = () => { setActiveTab('signup'); setError(null); setSignupSuccess(false) }
-  const switchToLogin = () => { setActiveTab('login'); setError(null); setSignupSuccess(false) }
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setResetError(null)
+    setSubmitting(true)
+
+    const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    })
+
+    setSubmitting(false)
+    if (error) {
+      setResetError(translateAuthError(error.message))
+    } else {
+      setResetSent(true)
+    }
+  }
+
+  const switchToSignup = () => { setActiveTab('signup'); setError(null); setSignupSuccess(false); setForgotPassword(false) }
+  const switchToLogin = () => { setActiveTab('login'); setError(null); setSignupSuccess(false); setForgotPassword(false); setResetSent(false); setResetError(null) }
 
   return (
     <div className="flex min-h-screen">
@@ -198,7 +219,66 @@ export default function LoginPage() {
 
           {/* Form Card */}
           <div className="bg-white rounded-2xl p-8 shadow-sm border border-border">
-            {activeTab === 'login' ? (
+            {forgotPassword ? (
+              /* === FORGOT PASSWORD === */
+              resetSent ? (
+                <div className="text-center py-4 space-y-4">
+                  <div className="flex justify-center">
+                    <CheckCircle className="w-12 h-12 text-green" />
+                  </div>
+                  <h2 className="text-lg font-semibold text-navy">Email envoyé !</h2>
+                  <p className="text-sm text-text-secondary leading-relaxed">
+                    Un email de réinitialisation t'a été envoyé. Vérifie ta boîte mail.
+                  </p>
+                  <p className="text-sm text-text-muted">
+                    Pense à vérifier tes spams si tu ne vois rien.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={switchToLogin}
+                    className="w-full py-3 px-4 bg-accent text-white font-semibold rounded-xl hover:bg-accent/90 transition-colors text-sm mt-4"
+                  >
+                    Retour à la connexion →
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleForgotPassword} className="space-y-5">
+                  <div>
+                    <h2 className="text-lg font-semibold text-navy mb-1">Mot de passe oublié ?</h2>
+                    <p className="text-sm text-text-muted">Entre ton email pour recevoir un lien de réinitialisation.</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-text-secondary mb-1.5">
+                      Email
+                    </label>
+                    <input
+                      type="email"
+                      value={resetEmail}
+                      onChange={(e) => setResetEmail(e.target.value)}
+                      required
+                      className="w-full px-4 py-3 rounded-xl border border-border bg-[#F7F7F9] text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition-all"
+                      placeholder="votre@email.com"
+                    />
+                  </div>
+
+                  {resetError && <p className="text-sm text-red">{resetError}</p>}
+
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="w-full py-3 px-4 bg-accent text-white font-semibold rounded-xl hover:bg-accent/90 transition-colors disabled:opacity-50 text-sm"
+                  >
+                    {submitting ? '...' : 'Envoyer le lien de réinitialisation'}
+                  </button>
+
+                  <p className="text-center text-sm text-text-muted">
+                    <button type="button" onClick={switchToLogin} className="text-accent font-medium hover:underline">
+                      ← Retour à la connexion
+                    </button>
+                  </p>
+                </form>
+              )
+            ) : activeTab === 'login' ? (
               /* === LOGIN FORM === */
               <form onSubmit={handleLogin} className="space-y-5">
                 <div>
@@ -222,6 +302,7 @@ export default function LoginPage() {
                     </label>
                     <button
                       type="button"
+                      onClick={() => { setForgotPassword(true); setResetEmail(email); setResetError(null); setResetSent(false) }}
                       className="text-xs text-accent hover:underline"
                     >
                       Mot de passe oublié ?
