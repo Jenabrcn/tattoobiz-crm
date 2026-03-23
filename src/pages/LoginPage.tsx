@@ -101,17 +101,6 @@ export default function LoginPage() {
       return
     }
 
-    // Insert into users table
-    if (data.user) {
-      await supabase.from('users').upsert({
-        id: data.user.id,
-        email,
-        first_name: firstName,
-        last_name: lastName,
-        studio_name: studioName || null,
-      })
-    }
-
     setSubmitting(false)
     setSignupSuccess(true)
   }

@@ -33,10 +33,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      async (event, session) => {
         setSession(session)
         setUser(session?.user ?? null)
         setLoading(false)
+
+        // Ensure user profile exists in users table on first sign-in
+        if (event === 'SIGNED_IN' && session?.user) {
+          const u = session.user
+          const meta = u.user_metadata || {}
+          await supabase.from('users').upsert({
+            id: u.id,
+            email: u.email!,
+            first_name: meta.first_name || null,
+            last_name: meta.last_name || null,
+            studio_name: meta.studio_name || null,
+          }, { onConflict: 'id', ignoreDuplicates: false })
+        }
       }
     )
 
