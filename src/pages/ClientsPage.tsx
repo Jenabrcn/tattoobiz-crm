@@ -39,7 +39,6 @@ function TagBadge({ tag }: { tag: string | null }) {
   const colors: Record<string, string> = {
     'Nouveau': 'bg-blue-50 text-blue-600',
     'Régulier': 'bg-green/10 text-green',
-    'Projet en cours': 'bg-accent-light text-accent',
   }
   return (
     <span className={`text-xs font-medium px-2.5 py-1 rounded-lg ${colors[tag] || 'bg-gray-100 text-text-muted'}`}>
@@ -57,7 +56,6 @@ export default function ClientsPage() {
   const tags: { label: string; value: TagFilter; count: number }[] = [
     { label: 'Tous', value: 'all', count: data.totalCount },
     { label: 'Régulier', value: 'Régulier', count: data.regulierCount },
-    { label: 'Projet en cours', value: 'Projet en cours', count: data.projetCount },
     { label: 'Nouveau', value: 'Nouveau', count: data.nouveauCount },
   ]
 

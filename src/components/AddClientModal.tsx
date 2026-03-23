@@ -9,7 +9,7 @@ interface Props {
   onCreated: () => void
 }
 
-const TAG_OPTIONS = ['Nouveau', 'Régulier', 'Projet en cours']
+const TAG_OPTIONS = ['Nouveau', 'Régulier']
 
 export default function AddClientModal({ open, onClose, onCreated }: Props) {
   const { user } = useAuth()

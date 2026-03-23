@@ -245,7 +245,6 @@ export default function ClientDetailPage() {
               {client.tag && (
                 <span className={`text-xs font-medium px-2.5 py-1 rounded-lg ${
                   client.tag === 'Régulier' ? 'bg-green/10 text-green' :
-                  client.tag === 'Projet en cours' ? 'bg-accent-light text-accent' :
                   'bg-blue-50 text-blue-600'
                 }`}>
                   {client.tag}

@@ -20,7 +20,7 @@ interface Props {
   onUpdated: () => void
 }
 
-const TAG_OPTIONS = ['Nouveau', 'Régulier', 'Projet en cours']
+const TAG_OPTIONS = ['Nouveau', 'Régulier']
 
 export default function EditClientModal({ open, client, onClose, onUpdated }: Props) {
   const [saving, setSaving] = useState(false)

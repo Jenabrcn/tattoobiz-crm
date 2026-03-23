@@ -253,14 +253,10 @@ export default function DashboardPage() {
               <p className="text-sm text-text-muted mt-2">clients au total</p>
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-border">
+          <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-border">
             <div className="text-center">
               <p className="text-lg font-bold text-navy">{data.regularClients}</p>
               <p className="text-xs text-text-muted">Réguliers</p>
-            </div>
-            <div className="text-center">
-              <p className="text-lg font-bold text-navy">{data.activeProjects}</p>
-              <p className="text-xs text-text-muted">Projets en cours</p>
             </div>
             <div className="text-center">
               <p className="text-lg font-bold text-navy">{data.newClients}</p>

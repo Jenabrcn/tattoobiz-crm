@@ -57,7 +57,6 @@ export interface DashboardData {
   totalClients: number
   regularClients: number
   newClients: number
-  activeProjects: number
   upcomingAppointments: UpcomingAppointment[]
   recentClients: RecentClient[]
   revenueSeries: PeriodPoint[]
@@ -110,7 +109,6 @@ export function useDashboardData(): DashboardData {
   const [totalClients, setTotalClients] = useState(0)
   const [regularClients, setRegularClients] = useState(0)
   const [newClients, setNewClients] = useState(0)
-  const [activeProjects, setActiveProjects] = useState(0)
   const [upcomingAppointments, setUpcomingAppointments] = useState<UpcomingAppointment[]>([])
   const [recentClients, setRecentClients] = useState<RecentClient[]>([])
   const [revenueSeries, setRevenueSeries] = useState<PeriodPoint[]>([])
@@ -251,9 +249,6 @@ export function useDashboardData(): DashboardData {
     allAppts.forEach(a => apptCountMap.set(a.client_id, (apptCountMap.get(a.client_id) || 0) + 1))
     const regulars = [...apptCountMap.values()].filter(v => v > 1).length
 
-    // Active projects (future appointments count)
-    const activeP = futureAppts.length
-
     // --- Finances (compute current month, previous month, time series from single query) ---
     const allFinances = (financesResult.data || []) as { type: string; date: string; amount: number }[]
     const curMonthFinances = allFinances.filter(f => f.date >= monthStart && f.date <= today)
@@ -296,7 +291,6 @@ export function useDashboardData(): DashboardData {
     setTotalClients(total)
     setRegularClients(regulars)
     setNewClients(newC)
-    setActiveProjects(activeP)
     setUpcomingAppointments(upcomingEnriched)
     setRecentClients(recent5)
     setRevenueSeries(revSeries)
@@ -318,7 +312,6 @@ export function useDashboardData(): DashboardData {
     totalClients,
     regularClients,
     newClients,
-    activeProjects,
     upcomingAppointments,
     recentClients,
     revenueSeries,
