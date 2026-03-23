@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { clearDashboardCache } from '../hooks/useDashboardData'
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -36,8 +37,9 @@ export function AppLayout() {
       })
   }, [user])
 
-  const handleSignOut = async () => {
-    await signOut()
+  const handleSignOut = () => {
+    clearDashboardCache()
+    signOut()
     navigate('/login')
   }
 
