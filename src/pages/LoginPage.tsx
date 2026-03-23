@@ -83,7 +83,7 @@ export default function LoginPage() {
     setError(null)
     setSubmitting(true)
 
-    const { data, error } = await supabase.auth.signUp({
+    const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
