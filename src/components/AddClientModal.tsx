@@ -20,6 +20,7 @@ export default function AddClientModal({ open, onClose, onCreated }: Props) {
     email: '',
     phone: '',
     instagram: '',
+    city: '',
     tag: 'Nouveau',
     notes: '',
   })
@@ -38,13 +39,14 @@ export default function AddClientModal({ open, onClose, onCreated }: Props) {
       email: form.email.trim() || null,
       phone: form.phone.trim() || null,
       instagram: form.instagram.trim() || null,
+      city: form.city.trim() || null,
       tag: form.tag || null,
       notes: form.notes.trim() || null,
     })
 
     setSaving(false)
     if (!error) {
-      setForm({ first_name: '', last_name: '', email: '', phone: '', instagram: '', tag: 'Nouveau', notes: '' })
+      setForm({ first_name: '', last_name: '', email: '', phone: '', instagram: '', city: '', tag: 'Nouveau', notes: '' })
       onCreated()
       onClose()
     }
@@ -105,6 +107,15 @@ export default function AddClientModal({ open, onClose, onCreated }: Props) {
               value={form.instagram}
               onChange={e => set('instagram', e.target.value)}
               placeholder="@pseudo"
+              className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-navy mb-1">Ville</label>
+            <input
+              value={form.city}
+              onChange={e => set('city', e.target.value)}
+              placeholder="Paris, Lyon..."
               className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
             />
           </div>

@@ -38,6 +38,7 @@ export interface Database {
           email: string | null
           instagram: string | null
           tag: string | null
+          city: string | null
           notes: string | null
           created_at: string
         }
@@ -50,6 +51,7 @@ export interface Database {
           email?: string | null
           instagram?: string | null
           tag?: string | null
+          city?: string | null
           notes?: string | null
           created_at?: string
         }
@@ -62,6 +64,7 @@ export interface Database {
           email?: string | null
           instagram?: string | null
           tag?: string | null
+          city?: string | null
           notes?: string | null
           created_at?: string
         }
