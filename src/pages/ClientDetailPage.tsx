@@ -14,6 +14,8 @@ import {
   Camera,
   Plus,
   Clock,
+  Download,
+  Trash2,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import EditClientModal from '../components/EditClientModal'
@@ -200,6 +202,30 @@ export default function ClientDetailPage() {
 
     setUploadingType(null)
     e.target.value = ''
+  }
+
+  const handlePhotoDelete = async (photo: Photo) => {
+    // Extract storage path from public URL
+    const urlParts = photo.url.split('/client-photos/')
+    const storagePath = urlParts[1]
+    if (storagePath) {
+      await supabase.storage.from('client-photos').remove([decodeURIComponent(storagePath)])
+    }
+    await supabase.from('photos').delete().eq('id', photo.id)
+    setPhotos(prev => prev.filter(p => p.id !== photo.id))
+  }
+
+  const handlePhotoDownload = async (photo: Photo, label: string) => {
+    const response = await fetch(photo.url)
+    const blob = await response.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${label}.${photo.url.split('.').pop()}`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
   }
 
   if (loading) {
@@ -400,20 +426,26 @@ export default function ClientDetailPage() {
                   <div className="text-2xl mb-1">{slot.icon}</div>
                   <p className="text-xs font-medium text-navy mb-2 text-center">{slot.label}</p>
                   {photo ? (
-                    <div className="w-full">
-                      <div className="aspect-[4/3] rounded-lg overflow-hidden bg-gray-100 mb-2">
+                    <div className="w-full relative">
+                      <div className="aspect-[4/3] rounded-lg overflow-hidden bg-gray-100">
                         <img src={photo.url} alt={slot.label} className="w-full h-full object-cover" />
                       </div>
-                      <label className="block w-full text-center text-xs text-accent font-medium cursor-pointer hover:underline">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={e => handlePhotoUpload(e, slot.type)}
-                          disabled={isUploading}
-                        />
-                        {isUploading ? 'Upload...' : 'Remplacer'}
-                      </label>
+                      <div className="absolute bottom-1 right-1 flex gap-1">
+                        <button
+                          onClick={() => handlePhotoDownload(photo, slot.label)}
+                          className="p-1.5 rounded-md bg-black/50 text-white hover:bg-black/70 transition-colors"
+                          title="Télécharger"
+                        >
+                          <Download size={14} />
+                        </button>
+                        <button
+                          onClick={() => handlePhotoDelete(photo)}
+                          className="p-1.5 rounded-md bg-black/50 text-white hover:bg-red/80 transition-colors"
+                          title="Supprimer"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <label className={`w-full aspect-[4/3] rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center cursor-pointer hover:border-accent hover:bg-accent-light/50 transition-colors ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}>
