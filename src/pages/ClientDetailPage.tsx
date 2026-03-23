@@ -86,9 +86,9 @@ export default function ClientDetailPage() {
   const [uploadingType, setUploadingType] = useState<PhotoType | null>(null)
   const notesTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (isInitial = true) => {
     if (!id) return
-    setLoading(true)
+    if (isInitial) setLoading(true)
 
     const { data: clientData } = await supabase
       .from('clients')
@@ -108,12 +108,13 @@ export default function ClientDetailPage() {
       .order('date', { ascending: false }) as { data: FinanceEntry[] | null }
     setFinances(fin || [])
 
-    const { data: ph } = await supabase
+    const { data: ph, error: phError } = await supabase
       .from('photos')
       .select('*')
       .eq('client_id', id)
-      .order('created_at', { ascending: false }) as { data: Photo[] | null }
-    setPhotos(ph || [])
+      .order('created_at', { ascending: false })
+    console.log('[fetchData] photos result:', ph, 'error:', phError)
+    setPhotos((ph as Photo[]) || [])
 
     const { data: appts } = await supabase
       .from('appointments')
@@ -122,7 +123,7 @@ export default function ClientDetailPage() {
       .order('date', { ascending: false }) as { data: AppointmentEntry[] | null }
     setAppointments(appts || [])
 
-    setLoading(false)
+    if (isInitial) setLoading(false)
   }, [id])
 
   useEffect(() => {
@@ -148,30 +149,55 @@ export default function ClientDetailPage() {
     const ext = file.name.split('.').pop()
     const path = `${id}/${photoType}_${Date.now()}.${ext}`
 
-    const { error: uploadError } = await supabase.storage
+    const { error: uploadError, data: uploadData } = await supabase.storage
       .from('client-photos')
       .upload(path, file, { upsert: true })
 
-    if (!uploadError) {
-      const { data: urlData } = supabase.storage
-        .from('client-photos')
-        .getPublicUrl(path)
+    console.log('[photo upload] storage result:', uploadData, 'error:', uploadError)
 
-      // Delete existing photo of this type for this client
-      const existing = photos.find(p => p.type === photoType)
-      if (existing) {
-        await supabase.from('photos').delete().eq('id', existing.id)
-      }
-
-      await supabase.from('photos').insert({
-        client_id: id,
-        url: urlData.publicUrl,
-        type: photoType,
-        description: file.name,
-      })
-
-      fetchData()
+    if (uploadError) {
+      console.error('[photo upload] Storage upload failed:', uploadError)
+      setUploadingType(null)
+      e.target.value = ''
+      return
     }
+
+    const { data: urlData } = supabase.storage
+      .from('client-photos')
+      .getPublicUrl(path)
+
+    const publicUrl = urlData.publicUrl
+    console.log('[photo upload] publicUrl:', publicUrl)
+
+    // Delete existing photo of this type for this client
+    const existing = photos.find(p => p.type === photoType)
+    if (existing) {
+      await supabase.from('photos').delete().eq('id', existing.id)
+    }
+
+    const { data: insertData, error: insertError } = await supabase.from('photos').insert({
+      client_id: id,
+      url: publicUrl,
+      type: photoType,
+      description: file.name,
+    }).select()
+
+    console.log('[photo upload] insert result:', insertData, 'error:', insertError)
+
+    if (insertError) {
+      console.error('[photo upload] Insert failed:', insertError)
+    } else {
+      // Optimistically update photos state immediately
+      if (insertData && insertData.length > 0) {
+        setPhotos(prev => {
+          const filtered = prev.filter(p => p.type !== photoType)
+          return [...filtered, insertData[0] as Photo]
+        })
+      }
+      // Also refetch in background to stay in sync
+      fetchData(false)
+    }
+
     setUploadingType(null)
     e.target.value = ''
   }
