@@ -10,7 +10,6 @@ import {
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { clearDashboardCache } from '../hooks/useDashboardData'
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -21,7 +20,7 @@ const navItems = [
 ]
 
 export function AppLayout() {
-  const { user, signOut } = useAuth()
+  const { user, signOut, profileVersion } = useAuth()
   const navigate = useNavigate()
   const [profile, setProfile] = useState<{ first_name: string | null; last_name: string | null; studio_name: string | null } | null>(null)
 
@@ -35,10 +34,9 @@ export function AppLayout() {
       .then(({ data }) => {
         if (data) setProfile(data)
       })
-  }, [user])
+  }, [user, profileVersion])
 
   const handleSignOut = () => {
-    clearDashboardCache()
     signOut()
     navigate('/login')
   }

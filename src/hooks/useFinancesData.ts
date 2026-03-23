@@ -59,78 +59,89 @@ export function useFinancesData() {
     if (!user) return
     setLoading(true)
 
-    const now = new Date()
-    const monthStart = fmtDate(startOfMonth(now))
-    const prevMonthStart = fmtDate(startOfMonth(new Date(now.getFullYear(), now.getMonth() - 1, 1)))
-    const prevMonthEnd = fmtDate(new Date(now.getFullYear(), now.getMonth(), 0))
+    try {
+      const now = new Date()
+      const monthStart = fmtDate(startOfMonth(now))
+      const prevMonthStart = fmtDate(startOfMonth(new Date(now.getFullYear(), now.getMonth() - 1, 1)))
+      const prevMonthEnd = fmtDate(new Date(now.getFullYear(), now.getMonth(), 0))
 
-    // Fetch all finances
-    const { data: finances } = await supabase
-      .from('finances')
-      .select('*')
-      .order('date', { ascending: false })
+      // Fetch all finances
+      const { data: finances } = await supabase
+        .from('finances')
+        .select('*')
+        .order('date', { ascending: false })
 
-    // Fetch clients for names
-    const { data: clients } = await supabase
-      .from('clients')
-      .select('*')
+      // Fetch clients for names
+      const { data: clients } = await supabase
+        .from('clients')
+        .select('*')
 
-    const clientMap = new Map(
-      (clients || []).map(c => [c.id, `${c.first_name} ${c.last_name}`])
-    )
+      const clientMap = new Map(
+        (clients || []).map(c => [c.id, `${c.first_name} ${c.last_name}`])
+      )
 
-    const entries: FinanceEntry[] = (finances || []).map(f => ({
-      id: f.id,
-      date: f.date,
-      description: f.description,
-      amount: Number(f.amount),
-      type: f.type,
-      payment_method: f.payment_method,
-      category: f.category,
-      client_id: f.client_id,
-      client_name: f.client_id ? clientMap.get(f.client_id) || null : null,
-      created_at: f.created_at,
-    }))
+      const entries: FinanceEntry[] = (finances || []).map(f => ({
+        id: f.id,
+        date: f.date,
+        description: f.description,
+        amount: Number(f.amount),
+        type: f.type,
+        payment_method: f.payment_method,
+        category: f.category,
+        client_id: f.client_id,
+        client_name: f.client_id ? clientMap.get(f.client_id) || null : null,
+        created_at: f.created_at,
+      }))
 
-    setAllEntries(entries)
+      setAllEntries(entries)
 
-    // Current month stats
-    const curMonth = entries.filter(e => e.date >= monthStart)
-    setCurRevenue(curMonth.filter(e => e.type === 'revenu' || e.type === 'arrhes').reduce((s, e) => s + e.amount, 0))
-    setCurExpenses(curMonth.filter(e => e.type === 'depense').reduce((s, e) => s + e.amount, 0))
+      // Current month stats
+      const curMonth = entries.filter(e => e.date >= monthStart)
+      setCurRevenue(curMonth.filter(e => e.type === 'revenu' || e.type === 'arrhes').reduce((s, e) => s + e.amount, 0))
+      setCurExpenses(curMonth.filter(e => e.type === 'depense').reduce((s, e) => s + e.amount, 0))
 
-    // Previous month stats
-    const prevMonth = entries.filter(e => e.date >= prevMonthStart && e.date <= prevMonthEnd)
-    setPrevRevenue(prevMonth.filter(e => e.type === 'revenu' || e.type === 'arrhes').reduce((s, e) => s + e.amount, 0))
-    setPrevExpenses(prevMonth.filter(e => e.type === 'depense').reduce((s, e) => s + e.amount, 0))
+      // Previous month stats
+      const prevMonth = entries.filter(e => e.date >= prevMonthStart && e.date <= prevMonthEnd)
+      setPrevRevenue(prevMonth.filter(e => e.type === 'revenu' || e.type === 'arrhes').reduce((s, e) => s + e.amount, 0))
+      setPrevExpenses(prevMonth.filter(e => e.type === 'depense').reduce((s, e) => s + e.amount, 0))
 
-    // Last 6 months bar chart data
-    const bars: MonthBar[] = []
-    for (let i = 5; i >= 0; i--) {
-      const m = new Date(now.getFullYear(), now.getMonth() - i, 1)
-      const mEnd = new Date(m.getFullYear(), m.getMonth() + 1, 0)
-      const mStart = fmtDate(m)
-      const mEndStr = fmtDate(mEnd)
-      const mEntries = entries.filter(e => e.date >= mStart && e.date <= mEndStr)
-      bars.push({
-        label: m.toLocaleDateString('fr-FR', { month: 'short' }),
-        revenue: mEntries.filter(e => e.type === 'revenu' || e.type === 'arrhes').reduce((s, e) => s + e.amount, 0),
-        expenses: mEntries.filter(e => e.type === 'depense').reduce((s, e) => s + e.amount, 0),
+      // Last 6 months bar chart data
+      const bars: MonthBar[] = []
+      for (let i = 5; i >= 0; i--) {
+        const m = new Date(now.getFullYear(), now.getMonth() - i, 1)
+        const mEnd = new Date(m.getFullYear(), m.getMonth() + 1, 0)
+        const mStart = fmtDate(m)
+        const mEndStr = fmtDate(mEnd)
+        const mEntries = entries.filter(e => e.date >= mStart && e.date <= mEndStr)
+        bars.push({
+          label: m.toLocaleDateString('fr-FR', { month: 'short' }),
+          revenue: mEntries.filter(e => e.type === 'revenu' || e.type === 'arrhes').reduce((s, e) => s + e.amount, 0),
+          expenses: mEntries.filter(e => e.type === 'depense').reduce((s, e) => s + e.amount, 0),
+        })
+      }
+      setMonthBars(bars)
+
+      // Top expenses by category this month
+      const curExpEntries = curMonth.filter(e => e.type === 'depense')
+      const catMap = new Map<string, number>()
+      curExpEntries.forEach(e => {
+        const cat = e.category || 'Divers'
+        catMap.set(cat, (catMap.get(cat) || 0) + e.amount)
       })
+      const sorted = [...catMap.entries()]
+        .map(([category, amount]) => ({ category, amount }))
+        .sort((a, b) => b.amount - a.amount)
+      setTopExpenses(sorted)
+    } catch {
+      // On error, show empty state instead of blocking UI
+      setAllEntries([])
+      setCurRevenue(0)
+      setCurExpenses(0)
+      setPrevRevenue(0)
+      setPrevExpenses(0)
+      setMonthBars([])
+      setTopExpenses([])
     }
-    setMonthBars(bars)
-
-    // Top expenses by category this month
-    const curExpEntries = curMonth.filter(e => e.type === 'depense')
-    const catMap = new Map<string, number>()
-    curExpEntries.forEach(e => {
-      const cat = e.category || 'Divers'
-      catMap.set(cat, (catMap.get(cat) || 0) + e.amount)
-    })
-    const sorted = [...catMap.entries()]
-      .map(([category, amount]) => ({ category, amount }))
-      .sort((a, b) => b.amount - a.amount)
-    setTopExpenses(sorted)
 
     setLoading(false)
   }, [user])

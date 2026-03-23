@@ -97,76 +97,36 @@ function withTimeout<T>(promise: PromiseLike<T>): Promise<T> {
   ])
 }
 
-interface CachedData {
-  firstName: string
-  todayAppointments: TodayAppointment[]
-  currentMonth: MonthlyFinance
-  previousMonth: MonthlyFinance
-  clientsThisMonth: number
-  clientsLastMonth: number
-  totalClients: number
-  regularClients: number
-  newClients: number
-  activeProjects: number
-  upcomingAppointments: UpcomingAppointment[]
-  recentClients: RecentClient[]
-  revenueSeries: PeriodPoint[]
-  clientsSeries: PeriodPoint[]
-  periodFilter: PeriodFilter
-  fetchedAt: number
-}
-
-// Module-level cache so it persists across navigations
-let dataCache: CachedData | null = null
-const CACHE_TTL = 60_000 // 1 minute
-
-// Clear cache on sign-out (called from outside)
-export function clearDashboardCache() {
-  dataCache = null
-}
-
 export function useDashboardData(): DashboardData {
   const { user } = useAuth()
-  const [loading, setLoading] = useState(!dataCache)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [firstName, setFirstName] = useState(dataCache?.firstName ?? '')
-  const [todayAppointments, setTodayAppointments] = useState<TodayAppointment[]>(dataCache?.todayAppointments ?? [])
-  const [currentMonth, setCurrentMonth] = useState<MonthlyFinance>(dataCache?.currentMonth ?? { revenue: 0, expenses: 0, net: 0 })
-  const [previousMonth, setPreviousMonth] = useState<MonthlyFinance>(dataCache?.previousMonth ?? { revenue: 0, expenses: 0, net: 0 })
-  const [clientsThisMonth, setClientsThisMonth] = useState(dataCache?.clientsThisMonth ?? 0)
-  const [clientsLastMonth, setClientsLastMonth] = useState(dataCache?.clientsLastMonth ?? 0)
-  const [totalClients, setTotalClients] = useState(dataCache?.totalClients ?? 0)
-  const [regularClients, setRegularClients] = useState(dataCache?.regularClients ?? 0)
-  const [newClients, setNewClients] = useState(dataCache?.newClients ?? 0)
-  const [activeProjects, setActiveProjects] = useState(dataCache?.activeProjects ?? 0)
-  const [upcomingAppointments, setUpcomingAppointments] = useState<UpcomingAppointment[]>(dataCache?.upcomingAppointments ?? [])
-  const [recentClients, setRecentClients] = useState<RecentClient[]>(dataCache?.recentClients ?? [])
-  const [revenueSeries, setRevenueSeries] = useState<PeriodPoint[]>(dataCache?.revenueSeries ?? [])
-  const [clientsSeries, setClientsSeries] = useState<PeriodPoint[]>(dataCache?.clientsSeries ?? [])
-  const [periodFilter, setPeriodFilter] = useState<PeriodFilter>(dataCache?.periodFilter ?? 'month')
+  const [firstName, setFirstName] = useState('')
+  const [todayAppointments, setTodayAppointments] = useState<TodayAppointment[]>([])
+  const [currentMonth, setCurrentMonth] = useState<MonthlyFinance>({ revenue: 0, expenses: 0, net: 0 })
+  const [previousMonth, setPreviousMonth] = useState<MonthlyFinance>({ revenue: 0, expenses: 0, net: 0 })
+  const [clientsThisMonth, setClientsThisMonth] = useState(0)
+  const [clientsLastMonth, setClientsLastMonth] = useState(0)
+  const [totalClients, setTotalClients] = useState(0)
+  const [regularClients, setRegularClients] = useState(0)
+  const [newClients, setNewClients] = useState(0)
+  const [activeProjects, setActiveProjects] = useState(0)
+  const [upcomingAppointments, setUpcomingAppointments] = useState<UpcomingAppointment[]>([])
+  const [recentClients, setRecentClients] = useState<RecentClient[]>([])
+  const [revenueSeries, setRevenueSeries] = useState<PeriodPoint[]>([])
+  const [clientsSeries, setClientsSeries] = useState<PeriodPoint[]>([])
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilter>('month')
   const fetchIdRef = useRef(0)
   const [retryKey, setRetryKey] = useState(0)
 
   const retry = () => {
-    dataCache = null
     setError(null)
     setLoading(true)
     setRetryKey(k => k + 1)
   }
 
   useEffect(() => {
-    if (!user) {
-      // User signed out — clear cache
-      dataCache = null
-      return
-    }
-
-    // Use cache if fresh and same period filter
-    if (dataCache && dataCache.periodFilter === periodFilter && Date.now() - dataCache.fetchedAt < CACHE_TTL) {
-      setLoading(false)
-      setError(null)
-      return
-    }
+    if (!user) return
 
     const fetchId = ++fetchIdRef.current
     fetchAll(fetchId)
@@ -175,8 +135,7 @@ export function useDashboardData(): DashboardData {
 
   async function fetchAll(fetchId: number) {
     if (!user) return
-    // Only show loading spinner on first load, not on background refreshes
-    if (!dataCache) setLoading(true)
+    setLoading(true)
     setError(null)
 
     const now = new Date()
@@ -344,26 +303,6 @@ export function useDashboardData(): DashboardData {
     setClientsSeries(cliSeries)
     setLoading(false)
     setError(null)
-
-    // Update cache
-    dataCache = {
-      firstName: fName,
-      todayAppointments: todayEnriched,
-      currentMonth: calcFinances(curMonthFinances),
-      previousMonth: calcFinances(prevMonthFinances),
-      clientsThisMonth: curClients,
-      clientsLastMonth: prevClientsCount,
-      totalClients: total,
-      regularClients: regulars,
-      newClients: newC,
-      activeProjects: activeP,
-      upcomingAppointments: upcomingEnriched,
-      recentClients: recent5,
-      revenueSeries: revSeries,
-      clientsSeries: cliSeries,
-      periodFilter,
-      fetchedAt: Date.now(),
-    }
   }
 
   return {

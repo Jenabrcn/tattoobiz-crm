@@ -6,14 +6,18 @@ interface AuthContextType {
   user: User | null
   session: Session | null
   loading: boolean
-  signOut: () => Promise<void>
+  profileVersion: number
+  refreshProfile: () => void
+  signOut: () => void
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   session: null,
   loading: true,
-  signOut: async () => {},
+  profileVersion: 0,
+  refreshProfile: () => {},
+  signOut: () => {},
 })
 
 export function useAuth() {
@@ -24,6 +28,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
+  const [profileVersion, setProfileVersion] = useState(0)
 
   useEffect(() => {
     // Timeout: never stay loading for more than 10s
@@ -69,7 +74,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  const signOut = useCallback(async () => {
+  const refreshProfile = useCallback(() => {
+    setProfileVersion(v => v + 1)
+  }, [])
+
+  const signOut = useCallback(() => {
     // Clear state immediately so UI responds instantly
     setUser(null)
     setSession(null)
@@ -80,7 +89,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, profileVersion, refreshProfile, signOut }}>
       {children}
     </AuthContext.Provider>
   )

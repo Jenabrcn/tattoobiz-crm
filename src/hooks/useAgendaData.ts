@@ -51,71 +51,77 @@ export function useAgendaData() {
     if (!user) return
     setLoading(true)
 
-    // Determine date range based on view - fetch wider range for calendar display
-    let rangeStart: Date
-    let rangeEnd: Date
+    try {
+      // Determine date range based on view - fetch wider range for calendar display
+      let rangeStart: Date
+      let rangeEnd: Date
 
-    if (viewMode === 'month') {
+      if (viewMode === 'month') {
+        const ms = startOfMonth(currentDate)
+        const me = endOfMonth(currentDate)
+        // Extend to cover calendar grid (prev/next month days)
+        const dayOfWeek = ms.getDay()
+        const offset = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+        rangeStart = new Date(ms.getFullYear(), ms.getMonth(), ms.getDate() - offset)
+        const endDay = me.getDay()
+        const endOffset = endDay === 0 ? 0 : 7 - endDay
+        rangeEnd = new Date(me.getFullYear(), me.getMonth(), me.getDate() + endOffset)
+      } else {
+        rangeStart = startOfWeek(currentDate)
+        rangeEnd = endOfWeek(currentDate)
+      }
+
+      const { data: appts } = await supabase
+        .from('appointments')
+        .select('*')
+        .gte('date', fmtDate(rangeStart))
+        .lte('date', fmtDate(rangeEnd))
+        .order('date')
+        .order('time')
+
+      if (appts && appts.length > 0) {
+        const clientIds = [...new Set(appts.map(a => a.client_id))]
+        const { data: clients } = await supabase
+          .from('clients')
+          .select('*')
+          .in('id', clientIds)
+
+        const clientMap = new Map(
+          (clients || []).map(c => [c.id, c])
+        )
+
+        setAppointments(appts.map(a => {
+          const c = clientMap.get(a.client_id)
+          return {
+            id: a.id,
+            date: a.date,
+            time: a.time,
+            duration_minutes: a.duration_minutes,
+            type: a.type,
+            description: a.description,
+            client_id: a.client_id,
+            client_first_name: c?.first_name || '',
+            client_last_name: c?.last_name || '',
+          }
+        }))
+      } else {
+        setAppointments([])
+      }
+
+      // Month count for header
       const ms = startOfMonth(currentDate)
       const me = endOfMonth(currentDate)
-      // Extend to cover calendar grid (prev/next month days)
-      const dayOfWeek = ms.getDay()
-      const offset = dayOfWeek === 0 ? 6 : dayOfWeek - 1
-      rangeStart = new Date(ms.getFullYear(), ms.getMonth(), ms.getDate() - offset)
-      const endDay = me.getDay()
-      const endOffset = endDay === 0 ? 0 : 7 - endDay
-      rangeEnd = new Date(me.getFullYear(), me.getMonth(), me.getDate() + endOffset)
-    } else {
-      rangeStart = startOfWeek(currentDate)
-      rangeEnd = endOfWeek(currentDate)
-    }
-
-    const { data: appts } = await supabase
-      .from('appointments')
-      .select('*')
-      .gte('date', fmtDate(rangeStart))
-      .lte('date', fmtDate(rangeEnd))
-      .order('date')
-      .order('time')
-
-    if (appts && appts.length > 0) {
-      const clientIds = [...new Set(appts.map(a => a.client_id))]
-      const { data: clients } = await supabase
-        .from('clients')
-        .select('*')
-        .in('id', clientIds)
-
-      const clientMap = new Map(
-        (clients || []).map(c => [c.id, c])
-      )
-
-      setAppointments(appts.map(a => {
-        const c = clientMap.get(a.client_id)
-        return {
-          id: a.id,
-          date: a.date,
-          time: a.time,
-          duration_minutes: a.duration_minutes,
-          type: a.type,
-          description: a.description,
-          client_id: a.client_id,
-          client_first_name: c?.first_name || '',
-          client_last_name: c?.last_name || '',
-        }
-      }))
-    } else {
+      const { count } = await supabase
+        .from('appointments')
+        .select('*', { count: 'exact', head: true })
+        .gte('date', fmtDate(ms))
+        .lte('date', fmtDate(me))
+      setMonthCount(count || 0)
+    } catch {
+      // On error, show empty state instead of blocking UI
       setAppointments([])
+      setMonthCount(0)
     }
-
-    // Month count for header
-    const ms = startOfMonth(currentDate)
-    const me = endOfMonth(currentDate)
-    const { count } = await supabase
-      .from('appointments')
-      .select('*', { count: 'exact', head: true })
-      .gte('date', fmtDate(ms))
-      .lte('date', fmtDate(me))
-    setMonthCount(count || 0)
 
     setLoading(false)
   }, [user, currentDate, viewMode])

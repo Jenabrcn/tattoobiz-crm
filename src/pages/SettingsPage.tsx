@@ -5,11 +5,12 @@ import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 
 export default function SettingsPage() {
-  const { user, signOut } = useAuth()
+  const { user, signOut, refreshProfile } = useAuth()
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [form, setForm] = useState({
@@ -25,8 +26,8 @@ export default function SettingsPage() {
       .select('*')
       .eq('id', user.id)
       .single()
-      .then(({ data }) => {
-        if (data) {
+      .then(({ data, error }) => {
+        if (!error && data) {
           setForm({
             first_name: data.first_name || '',
             last_name: data.last_name || '',
@@ -42,20 +43,29 @@ export default function SettingsPage() {
     if (!user) return
     setSaving(true)
     setSaved(false)
+    setSaveError(null)
 
-    const { error } = await supabase
-      .from('users')
-      .update({
-        first_name: form.first_name.trim() || null,
-        last_name: form.last_name.trim() || null,
-        studio_name: form.studio_name.trim() || null,
-      })
-      .eq('id', user.id)
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({
+          first_name: form.first_name.trim() || null,
+          last_name: form.last_name.trim() || null,
+          studio_name: form.studio_name.trim() || null,
+        })
+        .eq('id', user.id)
 
-    setSaving(false)
-    if (!error) {
-      setSaved(true)
-      setTimeout(() => setSaved(false), 3000)
+      setSaving(false)
+      if (error) {
+        setSaveError('Erreur lors de la sauvegarde.')
+      } else {
+        setSaved(true)
+        refreshProfile()
+        setTimeout(() => setSaved(false), 3000)
+      }
+    } catch {
+      setSaving(false)
+      setSaveError('Erreur réseau, réessaie.')
     }
   }
 
@@ -63,10 +73,14 @@ export default function SettingsPage() {
     if (!user) return
     setDeleting(true)
 
-    // Delete user data (cascade will handle related tables)
-    await supabase.from('users').delete().eq('id', user.id)
+    try {
+      // Delete user data (cascade will handle related tables)
+      await supabase.from('users').delete().eq('id', user.id)
+    } catch {
+      // Continue with sign-out even if delete fails server-side
+    }
 
-    await signOut()
+    signOut()
     navigate('/login')
   }
 
@@ -144,6 +158,9 @@ export default function SettingsPage() {
             </button>
             {saved && (
               <span className="text-sm text-green font-medium">Profil mis à jour !</span>
+            )}
+            {saveError && (
+              <span className="text-sm text-red font-medium">{saveError}</span>
             )}
           </div>
         </form>
