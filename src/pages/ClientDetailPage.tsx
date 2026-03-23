@@ -56,9 +56,12 @@ interface FinanceEntry {
   type: 'revenu' | 'depense' | 'arrhes'
 }
 
+type PhotoType = 'consentement' | 'fiche_soin' | 'tattoo_frais' | 'tattoo_cicatrise'
+
 interface Photo {
   id: string
   url: string
+  type: PhotoType
   description: string | null
 }
 
@@ -80,7 +83,7 @@ export default function ClientDetailPage() {
   const [notes, setNotes] = useState('')
   const [showEdit, setShowEdit] = useState(false)
   const [showNewRdv, setShowNewRdv] = useState(false)
-  const [uploading, setUploading] = useState(false)
+  const [uploadingType, setUploadingType] = useState<PhotoType | null>(null)
   const notesTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const fetchData = useCallback(async () => {
@@ -136,33 +139,40 @@ export default function ClientDetailPage() {
     }, 1000)
   }
 
-  // Photo upload
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Photo upload by type
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>, photoType: PhotoType) => {
     const file = e.target.files?.[0]
     if (!file || !id) return
-    setUploading(true)
+    setUploadingType(photoType)
 
     const ext = file.name.split('.').pop()
-    const path = `${id}/${Date.now()}.${ext}`
+    const path = `${id}/${photoType}_${Date.now()}.${ext}`
 
     const { error: uploadError } = await supabase.storage
       .from('client-photos')
-      .upload(path, file)
+      .upload(path, file, { upsert: true })
 
     if (!uploadError) {
       const { data: urlData } = supabase.storage
         .from('client-photos')
         .getPublicUrl(path)
 
+      // Delete existing photo of this type for this client
+      const existing = photos.find(p => p.type === photoType)
+      if (existing) {
+        await supabase.from('photos').delete().eq('id', existing.id)
+      }
+
       await supabase.from('photos').insert({
         client_id: id,
         url: urlData.publicUrl,
+        type: photoType,
         description: file.name,
       })
 
       fetchData()
     }
-    setUploading(false)
+    setUploadingType(null)
     e.target.value = ''
   }
 
@@ -344,29 +354,57 @@ export default function ClientDetailPage() {
           <p className="text-xs text-text-muted mt-2">Sauvegarde automatique</p>
         </div>
 
-        {/* Photos des réalisations */}
+        {/* Documents & Photos */}
         <div className="bg-white rounded-xl border border-border p-6">
           <h3 className="text-sm font-semibold text-navy flex items-center gap-2 mb-4">
             <Camera size={16} className="text-accent" />
-            Photos des réalisations
+            Documents & Photos
           </h3>
-          <div className="grid grid-cols-3 gap-3">
-            {photos.map(photo => (
-              <div key={photo.id} className="aspect-square rounded-xl overflow-hidden bg-gray-100">
-                <img src={photo.url} alt={photo.description || ''} className="w-full h-full object-cover" />
-              </div>
-            ))}
-            <label className={`aspect-square rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center cursor-pointer hover:border-accent hover:bg-accent-light/50 transition-colors ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handlePhotoUpload}
-                disabled={uploading}
-              />
-              <Plus size={24} className="text-text-muted mb-1" />
-              <span className="text-xs text-text-muted">{uploading ? 'Upload...' : 'Ajouter'}</span>
-            </label>
+          <div className="grid grid-cols-2 gap-3">
+            {([
+              { type: 'consentement' as PhotoType, label: 'Consentement éclairé', icon: '📋' },
+              { type: 'fiche_soin' as PhotoType, label: 'Fiche de soin', icon: '💊' },
+              { type: 'tattoo_frais' as PhotoType, label: 'Tattoo frais', icon: '🎨' },
+              { type: 'tattoo_cicatrise' as PhotoType, label: 'Tattoo cicatrisé', icon: '✅' },
+            ]).map(slot => {
+              const photo = photos.find(p => p.type === slot.type)
+              const isUploading = uploadingType === slot.type
+              return (
+                <div key={slot.type} className="border border-border rounded-xl p-3 flex flex-col items-center">
+                  <div className="text-2xl mb-1">{slot.icon}</div>
+                  <p className="text-xs font-medium text-navy mb-2 text-center">{slot.label}</p>
+                  {photo ? (
+                    <div className="w-full">
+                      <div className="aspect-[4/3] rounded-lg overflow-hidden bg-gray-100 mb-2">
+                        <img src={photo.url} alt={slot.label} className="w-full h-full object-cover" />
+                      </div>
+                      <label className="block w-full text-center text-xs text-accent font-medium cursor-pointer hover:underline">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={e => handlePhotoUpload(e, slot.type)}
+                          disabled={isUploading}
+                        />
+                        {isUploading ? 'Upload...' : 'Remplacer'}
+                      </label>
+                    </div>
+                  ) : (
+                    <label className={`w-full aspect-[4/3] rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center cursor-pointer hover:border-accent hover:bg-accent-light/50 transition-colors ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={e => handlePhotoUpload(e, slot.type)}
+                        disabled={isUploading}
+                      />
+                      <Plus size={20} className="text-text-muted mb-1" />
+                      <span className="text-xs text-text-muted">{isUploading ? 'Upload...' : 'Ajouter une photo'}</span>
+                    </label>
+                  )}
+                </div>
+              )
+            })}
           </div>
         </div>
       </div>
