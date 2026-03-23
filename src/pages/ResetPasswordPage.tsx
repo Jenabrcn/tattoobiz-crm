@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { Lock, Eye, EyeOff, CheckCircle } from 'lucide-react'
+import { Eye, EyeOff, CheckCircle, AlertCircle } from 'lucide-react'
 
 export default function ResetPasswordPage() {
   const navigate = useNavigate()
@@ -12,22 +12,38 @@ export default function ResetPasswordPage() {
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
   const [sessionReady, setSessionReady] = useState(false)
+  const [invalidLink, setInvalidLink] = useState(false)
 
   useEffect(() => {
-    // Supabase automatically handles the token from the URL hash
-    // and creates a session via onAuthStateChange RECOVERY event
+    // Supabase PKCE flow: the recovery token arrives as query params
+    // (e.g. ?code=...) or as a hash fragment (#access_token=...).
+    // Calling getSession() after Supabase's JS client has processed
+    // the URL will give us the recovery session.
+
+    // Listen for the PASSWORD_RECOVERY event which fires when
+    // Supabase processes the recovery token from the URL
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') {
+      if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') {
         setSessionReady(true)
       }
     })
 
-    // Also check if there's already a session (page refresh after recovery)
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) setSessionReady(true)
-    })
+    // Give Supabase client time to process the URL tokens,
+    // then check for an existing session as fallback
+    const timeout = setTimeout(async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        setSessionReady(true)
+      } else {
+        // No session and no recovery event after timeout = invalid link
+        setInvalidLink(true)
+      }
+    }, 3000)
 
-    return () => subscription.unsubscribe()
+    return () => {
+      subscription.unsubscribe()
+      clearTimeout(timeout)
+    }
   }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -53,6 +69,7 @@ export default function ResetPasswordPage() {
       setError(error.message)
     } else {
       setSuccess(true)
+      setTimeout(() => navigate('/login'), 3000)
     }
   }
 
@@ -73,22 +90,39 @@ export default function ResetPasswordPage() {
               <div className="flex justify-center">
                 <CheckCircle className="w-12 h-12 text-green" />
               </div>
-              <h2 className="text-lg font-semibold text-navy">Mot de passe modifié !</h2>
+              <h2 className="text-lg font-semibold text-navy">Mot de passe modifié avec succès !</h2>
               <p className="text-sm text-text-secondary">
-                Ton mot de passe a été mis à jour avec succès.
+                Tu vas être redirigé vers la page de connexion...
               </p>
               <button
                 type="button"
-                onClick={() => navigate('/dashboard')}
+                onClick={() => navigate('/login')}
                 className="w-full py-3 px-4 bg-accent text-white font-semibold rounded-xl hover:bg-accent/90 transition-colors text-sm mt-4"
               >
-                Aller au dashboard →
+                Aller à la connexion →
+              </button>
+            </div>
+          ) : invalidLink ? (
+            <div className="text-center py-4 space-y-4">
+              <div className="flex justify-center">
+                <AlertCircle className="w-12 h-12 text-red" />
+              </div>
+              <h2 className="text-lg font-semibold text-navy">Lien expiré ou invalide</h2>
+              <p className="text-sm text-text-secondary">
+                Ce lien de réinitialisation n'est plus valide. Demande un nouveau lien depuis la page de connexion.
+              </p>
+              <button
+                type="button"
+                onClick={() => navigate('/login')}
+                className="w-full py-3 px-4 bg-accent text-white font-semibold rounded-xl hover:bg-accent/90 transition-colors text-sm mt-4"
+              >
+                Retour à la connexion →
               </button>
             </div>
           ) : !sessionReady ? (
             <div className="text-center py-8 space-y-4">
-              <Lock className="w-10 h-10 text-text-muted mx-auto" />
-              <p className="text-sm text-text-muted">Chargement...</p>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent mx-auto" />
+              <p className="text-sm text-text-muted">Vérification du lien...</p>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-5">
