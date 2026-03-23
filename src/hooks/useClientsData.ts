@@ -134,7 +134,8 @@ export function useClientsData() {
       result = result.filter(c =>
         `${c.first_name} ${c.last_name}`.toLowerCase().includes(q) ||
         (c.email && c.email.toLowerCase().includes(q)) ||
-        (c.phone && c.phone.toLowerCase().includes(q))
+        (c.phone && c.phone.toLowerCase().includes(q)) ||
+        (c.city && c.city.toLowerCase().includes(q))
       )
     }
 
