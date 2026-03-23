@@ -20,7 +20,7 @@ export interface ClientWithStats extends ClientRow {
   total_spent: number
 }
 
-export type TagFilter = 'all' | 'Régulier' | 'Projet en cours' | 'Nouveau'
+export type TagFilter = 'all' | 'Régulier' | 'Nouveau'
 
 const PAGE_SIZE = 10
 
@@ -36,7 +36,6 @@ export function useClientsData() {
   // Tag counts
   const [totalCount, setTotalCount] = useState(0)
   const [regulierCount, setRegulierCount] = useState(0)
-  const [projetCount, setProjetCount] = useState(0)
   const [nouveauCount, setNouveauCount] = useState(0)
 
   // Mini stats
@@ -91,7 +90,6 @@ export function useClientsData() {
 
       // Tag counts
       setRegulierCount(enriched.filter(c => c.tag === 'Régulier').length)
-      setProjetCount(enriched.filter(c => c.tag === 'Projet en cours').length)
       setNouveauCount(enriched.filter(c => c.tag === 'Nouveau').length)
 
       // Clients this month
@@ -159,7 +157,6 @@ export function useClientsData() {
     totalPages,
     totalCount,
     regulierCount,
-    projetCount,
     nouveauCount,
     clientsThisMonth,
     avgBasket,
