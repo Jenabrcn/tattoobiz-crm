@@ -365,7 +365,7 @@ export default function ClientDetailPage() {
               <span className="text-sm font-bold text-green">{formatCurrency(totalSpent)}</span>
             </div>
             <div className="flex justify-between items-center py-2 border-t border-border">
-              <span className="text-sm text-text-secondary">Nombre de séances</span>
+              <span className="text-sm text-text-secondary">Total séances</span>
               <span className="text-sm font-bold text-navy">{nbSessions}</span>
             </div>
             <div className="flex justify-between items-center py-2 border-t border-border">
@@ -373,7 +373,7 @@ export default function ClientDetailPage() {
               <span className="text-sm font-bold text-navy">{formatCurrency(avgBasket)}</span>
             </div>
             <div className="flex justify-between items-center py-2 border-t border-border">
-              <span className="text-sm text-text-secondary">Arrhes en attente</span>
+              <span className="text-sm text-text-secondary">Arrhes versées</span>
               <span className="text-sm font-bold text-accent">{formatCurrency(pendingArrhes)}</span>
             </div>
             <div className="flex justify-between items-center py-2 border-t border-border">
