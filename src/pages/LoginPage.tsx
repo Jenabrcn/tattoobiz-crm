@@ -11,6 +11,17 @@ const features = [
   { icon: LayoutDashboard, label: 'Dashboard', desc: 'Tatboard en un coup d\'œil' },
 ]
 
+function getPasswordStrength(pw: string): { level: 0 | 1 | 2 | 3; label: string; color: string } {
+  if (!pw) return { level: 0, label: '', color: '' }
+  if (pw.length < 6) return { level: 1, label: 'Faible', color: '#dc2626' }
+  const hasUpper = /[A-Z]/.test(pw)
+  const hasDigit = /\d/.test(pw)
+  const hasSpecial = /[^A-Za-z0-9]/.test(pw)
+  if (pw.length >= 8 && hasUpper && hasDigit && hasSpecial) return { level: 3, label: 'Fort', color: '#16a34a' }
+  if (pw.length >= 6) return { level: 2, label: 'Moyen', color: '#f59e0b' }
+  return { level: 1, label: 'Faible', color: '#dc2626' }
+}
+
 function translateAuthError(message: string): string {
   const translations: Record<string, string> = {
     'Invalid login credentials': 'Email ou mot de passe incorrect.',
@@ -367,6 +378,23 @@ export default function LoginPage() {
                       {showPassword ? <EyeOff className="w-4.5 h-4.5" /> : <Eye className="w-4.5 h-4.5" />}
                     </button>
                   </div>
+                  {password && (() => {
+                    const strength = getPasswordStrength(password)
+                    return (
+                      <div className="mt-2 space-y-1">
+                        <div className="flex gap-1">
+                          {[1, 2, 3].map(i => (
+                            <div
+                              key={i}
+                              className="h-1 flex-1 rounded-full transition-colors"
+                              style={{ backgroundColor: i <= strength.level ? strength.color : '#e5e7eb' }}
+                            />
+                          ))}
+                        </div>
+                        <p className="text-xs" style={{ color: strength.color }}>{strength.label}</p>
+                      </div>
+                    )
+                  })()}
                 </div>
 
                 {error && <p className="text-sm text-red">{error}</p>}
