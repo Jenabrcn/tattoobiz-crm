@@ -8,6 +8,8 @@ export interface Database {
           first_name: string | null
           last_name: string | null
           studio_name: string | null
+          studio_address: string | null
+          siret: string | null
           created_at: string
         }
         Insert: {
@@ -16,6 +18,8 @@ export interface Database {
           first_name?: string | null
           last_name?: string | null
           studio_name?: string | null
+          studio_address?: string | null
+          siret?: string | null
           created_at?: string
         }
         Update: {
@@ -24,6 +28,8 @@ export interface Database {
           first_name?: string | null
           last_name?: string | null
           studio_name?: string | null
+          studio_address?: string | null
+          siret?: string | null
           created_at?: string
         }
         Relationships: []
@@ -150,6 +156,7 @@ export interface Database {
           id: string
           client_id: string
           url: string
+          type: 'consentement' | 'fiche_soin' | 'tattoo_frais' | 'tattoo_cicatrise'
           description: string | null
           created_at: string
         }
@@ -157,6 +164,7 @@ export interface Database {
           id?: string
           client_id: string
           url: string
+          type: 'consentement' | 'fiche_soin' | 'tattoo_frais' | 'tattoo_cicatrise'
           description?: string | null
           created_at?: string
         }
@@ -164,6 +172,7 @@ export interface Database {
           id?: string
           client_id?: string
           url?: string
+          type?: 'consentement' | 'fiche_soin' | 'tattoo_frais' | 'tattoo_cicatrise'
           description?: string | null
           created_at?: string
         }

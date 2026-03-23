@@ -17,6 +17,8 @@ export default function SettingsPage() {
     first_name: '',
     last_name: '',
     studio_name: '',
+    studio_address: '',
+    siret: '',
   })
 
   useEffect(() => {
@@ -32,6 +34,8 @@ export default function SettingsPage() {
             first_name: data.first_name || '',
             last_name: data.last_name || '',
             studio_name: data.studio_name || '',
+            studio_address: data.studio_address || '',
+            siret: data.siret || '',
           })
         }
         setLoading(false)
@@ -52,6 +56,8 @@ export default function SettingsPage() {
           first_name: form.first_name.trim() || null,
           last_name: form.last_name.trim() || null,
           studio_name: form.studio_name.trim() || null,
+          studio_address: form.studio_address.trim() || null,
+          siret: form.siret.trim() || null,
         })
         .eq('id', user.id)
 
@@ -145,6 +151,24 @@ export default function SettingsPage() {
               value={form.studio_name}
               onChange={e => set('studio_name', e.target.value)}
               placeholder="Mon studio"
+              className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-navy mb-1">Adresse du studio</label>
+            <input
+              value={form.studio_address}
+              onChange={e => set('studio_address', e.target.value)}
+              placeholder="12 rue de la Paix, 75002 Paris"
+              className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-navy mb-1">Numéro SIRET</label>
+            <input
+              value={form.siret}
+              onChange={e => set('siret', e.target.value)}
+              placeholder="123 456 789 00012"
               className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
             />
           </div>
