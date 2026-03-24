@@ -43,19 +43,6 @@ function formatTime(time: string) {
   return time.slice(0, 5)
 }
 
-function formatDateFr(dateStr: string) {
-  const d = new Date(dateStr)
-  return d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })
-}
-
-const AVATAR_COLORS = ['#F26522', '#1A1F3D', '#16a34a', '#6366f1', '#ec4899', '#f59e0b']
-
-function getAvatarColor(name: string) {
-  let hash = 0
-  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash)
-  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length]
-}
-
 function getPeriodLabel(dateRange: DateRange): string {
   switch (dateRange.preset) {
     case 'this_month': return 'Ce mois'
@@ -76,6 +63,22 @@ const PRESETS: { value: PeriodPreset; label: string }[] = [
   { value: 'last_month', label: 'Mois dernier' },
   { value: 'all_time', label: 'Depuis le début' },
 ]
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function ClientsTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null
+  const d = payload[0].payload
+  return (
+    <div className="bg-white rounded-xl shadow-lg p-3" style={{ border: '1px solid rgba(26,31,61,0.07)' }}>
+      <p className="text-xs font-semibold text-navy mb-1.5">{label}</p>
+      <p className="text-sm font-bold text-navy">{d.value} client{d.value !== 1 ? 's' : ''} ajouté{d.value !== 1 ? 's' : ''}</p>
+      <div className="flex gap-3 mt-1 text-xs text-text-muted">
+        <span>Nouveaux : {d.nouveaux}</span>
+        <span>Réguliers : {d.reguliers}</span>
+      </div>
+    </div>
+  )
+}
 
 export default function DashboardPage() {
   const data = useDashboardData()
@@ -252,7 +255,6 @@ export default function DashboardPage() {
 
       {/* 4 Stat Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-        {/* Revenue */}
         <div className="bg-white rounded-xl border border-border p-5">
           <div className="flex items-center justify-between mb-3">
             <div className="p-2 rounded-lg bg-green/10">
@@ -264,7 +266,6 @@ export default function DashboardPage() {
           <p className="text-sm text-text-muted mt-1">Revenus</p>
         </div>
 
-        {/* Expenses */}
         <div className="bg-white rounded-xl border border-border p-5">
           <div className="flex items-center justify-between mb-3">
             <div className="p-2 rounded-lg bg-red/10">
@@ -276,7 +277,6 @@ export default function DashboardPage() {
           <p className="text-sm text-text-muted mt-1">Dépenses</p>
         </div>
 
-        {/* Net */}
         <div className="bg-white rounded-xl border border-border p-5">
           <div className="flex items-center justify-between mb-3">
             <div className="p-2 rounded-lg bg-green/10">
@@ -288,7 +288,6 @@ export default function DashboardPage() {
           <p className="text-sm text-text-muted mt-1">Bénéfice net</p>
         </div>
 
-        {/* Clients */}
         <div className="bg-white rounded-xl border border-border p-5">
           <div className="flex items-center justify-between mb-3">
             <div className="p-2 rounded-lg bg-accent-light">
@@ -301,7 +300,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Pie chart + Total clients */}
+      {/* Pie chart + Revenue chart */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Pie chart */}
         <div className="bg-white rounded-xl border border-border p-6">
@@ -351,30 +350,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Total clients */}
-        <div className="bg-white rounded-xl border border-border p-6">
-          <h3 className="text-sm font-semibold text-navy mb-4">Clients</h3>
-          <div className="flex items-center justify-center h-[200px]">
-            <div className="text-center">
-              <p className="text-6xl font-bold text-navy">{data.totalClients}</p>
-              <p className="text-sm text-text-muted mt-2">clients sur la période</p>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-border">
-            <div className="text-center">
-              <p className="text-lg font-bold text-navy">{data.regularClients}</p>
-              <p className="text-xs text-text-muted">Réguliers</p>
-            </div>
-            <div className="text-center">
-              <p className="text-lg font-bold text-navy">{data.newClients}</p>
-              <p className="text-xs text-text-muted">Nouveaux</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Charts: Revenue + Clients */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Revenue chart */}
         <div className="bg-white rounded-xl border border-border p-6">
           <h3 className="text-sm font-semibold text-navy mb-1">Évolution du CA</h3>
@@ -411,101 +386,28 @@ export default function DashboardPage() {
             </AreaChart>
           </ResponsiveContainer>
         </div>
-
-        {/* Clients chart */}
-        <div className="bg-white rounded-xl border border-border p-6">
-          <h3 className="text-sm font-semibold text-navy mb-1">Clients sur la période</h3>
-          <div className="flex items-center gap-2 mb-4">
-            <p className="text-xl font-bold text-navy">{periodClients}</p>
-            <EvoBadge value={clientsEvo} />
-          </div>
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={data.clientsSeries}>
-              <XAxis
-                dataKey="label"
-                tick={{ fontSize: 11, fill: '#8C90A0' }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <YAxis hide />
-              <Tooltip
-                contentStyle={{ borderRadius: 12, border: '1px solid rgba(26,31,61,0.07)', fontSize: 12 }}
-                formatter={(v) => [Number(v), 'Clients']}
-              />
-              <Bar dataKey="value" fill="#F26522" radius={[4, 4, 0, 0]} barSize={24} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
       </div>
 
-      {/* Upcoming appointments + Recent clients */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {/* Appointments */}
-        <div className="bg-white rounded-xl border border-border p-6">
-          <h3 className="text-sm font-semibold text-navy mb-4">Rendez-vous</h3>
-          {data.upcomingAppointments.length === 0 ? (
-            <p className="text-sm text-text-muted py-8 text-center">Aucun rendez-vous sur cette période</p>
-          ) : (
-            <div className="space-y-4">
-              {data.upcomingAppointments.map(appt => (
-                <div key={appt.id} className="flex items-start gap-4">
-                  <div className="text-center shrink-0 w-14">
-                    <p className="text-xs font-bold text-accent uppercase">
-                      {formatDateFr(appt.date)}
-                    </p>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-navy">
-                      {appt.client_first_name} {appt.client_last_name}
-                    </p>
-                    {appt.description && (
-                      <p className="text-xs text-text-muted truncate">{appt.description}</p>
-                    )}
-                  </div>
-                  <span className="text-xs text-text-secondary font-medium bg-background px-2.5 py-1 rounded-lg">
-                    {formatTime(appt.time)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
+      {/* Clients chart — full width */}
+      <div className="bg-white rounded-xl border border-border p-6">
+        <h3 className="text-sm font-semibold text-navy mb-1">Clients sur la période</h3>
+        <div className="flex items-center gap-2 mb-4">
+          <p className="text-xl font-bold text-navy">{periodClients}</p>
+          <EvoBadge value={clientsEvo} />
         </div>
-
-        {/* Recent clients */}
-        <div className="bg-white rounded-xl border border-border p-6">
-          <h3 className="text-sm font-semibold text-navy mb-4">Clients sur la période</h3>
-          {data.recentClients.length === 0 ? (
-            <p className="text-sm text-text-muted py-8 text-center">Aucun client sur cette période</p>
-          ) : (
-            <div className="space-y-4">
-              {data.recentClients.map(client => {
-                const fullName = `${client.first_name} ${client.last_name}`
-                const initials = `${client.first_name[0]}${client.last_name[0]}`.toUpperCase()
-                const color = getAvatarColor(fullName)
-                const detail = client.instagram || client.email || ''
-                return (
-                  <div key={client.id} className="flex items-center gap-3">
-                    <div
-                      className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
-                      style={{ backgroundColor: color }}
-                    >
-                      {initials}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-navy">{fullName}</p>
-                      {detail && <p className="text-xs text-text-muted truncate">{detail}</p>}
-                    </div>
-                    {client.tag && (
-                      <span className="text-xs font-medium text-accent bg-accent-light px-2.5 py-1 rounded-lg">
-                        {client.tag}
-                      </span>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
+        <ResponsiveContainer width="100%" height={220}>
+          <BarChart data={data.clientsSeries}>
+            <XAxis
+              dataKey="label"
+              tick={{ fontSize: 11, fill: '#8C90A0' }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <YAxis hide />
+            <Tooltip content={<ClientsTooltip />} cursor={{ fill: 'rgba(242,101,34,0.06)' }} />
+            <Bar dataKey="value" fill="#F26522" radius={[4, 4, 0, 0]} barSize={28} />
+          </BarChart>
+        </ResponsiveContainer>
       </div>
     </div>
   )

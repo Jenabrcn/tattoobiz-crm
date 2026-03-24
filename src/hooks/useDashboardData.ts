@@ -11,26 +11,6 @@ interface TodayAppointment {
   client_last_name: string
 }
 
-interface UpcomingAppointment {
-  id: string
-  date: string
-  time: string
-  description: string | null
-  type: string
-  client_first_name: string
-  client_last_name: string
-}
-
-interface RecentClient {
-  id: string
-  first_name: string
-  last_name: string
-  tag: string | null
-  created_at: string
-  email: string | null
-  instagram: string | null
-}
-
 interface MonthlyFinance {
   revenue: number
   expenses: number
@@ -40,6 +20,13 @@ interface MonthlyFinance {
 interface PeriodPoint {
   label: string
   value: number
+}
+
+export interface ClientSeriesPoint {
+  label: string
+  value: number
+  nouveaux: number
+  reguliers: number
 }
 
 export type PeriodPreset = 'this_month' | 'last_30_days' | 'last_month' | 'all_time' | 'custom'
@@ -60,13 +47,8 @@ export interface DashboardData {
   previousMonth: MonthlyFinance
   clientsThisMonth: number
   clientsLastMonth: number
-  totalClients: number
-  regularClients: number
-  newClients: number
-  upcomingAppointments: UpcomingAppointment[]
-  recentClients: RecentClient[]
   revenueSeries: PeriodPoint[]
-  clientsSeries: PeriodPoint[]
+  clientsSeries: ClientSeriesPoint[]
   dateRange: DateRange
   setPreset: (p: PeriodPreset) => void
   setCustomRange: (from: string, to: string) => void
@@ -154,13 +136,8 @@ export function useDashboardData(): DashboardData {
   const [previousMonth, setPreviousMonth] = useState<MonthlyFinance>({ revenue: 0, expenses: 0, net: 0 })
   const [clientsThisMonth, setClientsThisMonth] = useState(0)
   const [clientsLastMonth, setClientsLastMonth] = useState(0)
-  const [totalClients, setTotalClients] = useState(0)
-  const [regularClients, setRegularClients] = useState(0)
-  const [newClients, setNewClients] = useState(0)
-  const [upcomingAppointments, setUpcomingAppointments] = useState<UpcomingAppointment[]>([])
-  const [recentClients, setRecentClients] = useState<RecentClient[]>([])
   const [revenueSeries, setRevenueSeries] = useState<PeriodPoint[]>([])
-  const [clientsSeries, setClientsSeries] = useState<PeriodPoint[]>([])
+  const [clientsSeries, setClientsSeries] = useState<ClientSeriesPoint[]>([])
   const [dateRange, setDateRange] = useState<DateRange>(getDefaultRange())
   const fetchIdRef = useRef(0)
   const [retryKey, setRetryKey] = useState(0)
@@ -194,12 +171,10 @@ export function useDashboardData(): DashboardData {
     const now = new Date()
     const today = fmtDate(now)
 
-    // Previous period for evolution comparison
     const isAllTime = dateRange.preset === 'all_time'
     const prevRange = isAllTime ? null : getPreviousRange(dateRange)
     const groupBy = getGroupBy(dateRange.from, dateRange.to)
 
-    // Earliest date needed for finance query
     const financeStart = prevRange ? prevRange.from : dateRange.from
 
     let profileResult, clientsResult, appointmentsResult, financesResult
@@ -212,12 +187,12 @@ export function useDashboardData(): DashboardData {
           .single(),
         supabase
           .from('clients')
-          .select('id, first_name, last_name, tag, email, instagram, created_at')
+          .select('id, first_name, last_name, tag, created_at')
           .order('created_at', { ascending: false }),
         supabase
           .from('appointments')
           .select('id, client_id, date, time, description, type')
-          .order('date')
+          .eq('date', today)
           .order('time'),
         supabase
           .from('finances')
@@ -252,7 +227,7 @@ export function useDashboardData(): DashboardData {
     const fName = profile?.first_name || user.email?.split('@')[0] || ''
 
     // --- Clients ---
-    const allClients = (clientsResult.data || []) as RecentClient[]
+    const allClients = (clientsResult.data || []) as { id: string; first_name: string; last_name: string; tag: string | null; created_at: string }[]
     const clientMap = new Map(allClients.map(c => [c.id, c]))
 
     const periodClients = allClients.filter(c => {
@@ -266,36 +241,19 @@ export function useDashboardData(): DashboardData {
         })
       : []
 
-    // --- Appointments ---
-    const allAppts = (appointmentsResult.data || []) as { id: string; client_id: string; date: string; time: string; description: string | null; type: string }[]
-
-    // Today's appointments (always unfiltered — for the banner)
-    const todayAppts = allAppts.filter(a => a.date === today)
-
-    // Appointments within the selected period
-    const periodAppts = allAppts.filter(a => a.date >= dateRange.from && a.date <= dateRange.to)
-
-    const enrichWithClients = (appts: typeof allAppts) =>
-      appts.map(a => {
-        const c = clientMap.get(a.client_id)
-        return {
-          id: a.id,
-          date: a.date,
-          time: a.time,
-          description: a.description,
-          type: a.type,
-          client_first_name: c?.first_name || '',
-          client_last_name: c?.last_name || '',
-        }
-      })
-
-    const todayEnriched = enrichWithClients(todayAppts)
-    const periodApptsEnriched = enrichWithClients(periodAppts.slice(0, 5))
-
-    // Regular clients (>1 appointment within period)
-    const periodApptCountMap = new Map<string, number>()
-    periodAppts.forEach(a => periodApptCountMap.set(a.client_id, (periodApptCountMap.get(a.client_id) || 0) + 1))
-    const regulars = [...periodApptCountMap.values()].filter(v => v > 1).length
+    // --- Today's appointments ---
+    const todayAppts = (appointmentsResult.data || []) as { id: string; client_id: string; date: string; time: string; description: string | null; type: string }[]
+    const todayEnriched = todayAppts.map(a => {
+      const c = clientMap.get(a.client_id)
+      return {
+        id: a.id,
+        time: a.time,
+        description: a.description,
+        type: a.type,
+        client_first_name: c?.first_name || '',
+        client_last_name: c?.last_name || '',
+      }
+    })
 
     // --- Finances ---
     const allFinances = (financesResult.data || []) as { type: string; date: string; amount: number }[]
@@ -304,13 +262,11 @@ export function useDashboardData(): DashboardData {
       ? allFinances.filter(f => f.date >= prevRange.from && f.date <= prevRange.to)
       : []
 
-    // Time series
+    // --- Time series ---
     const seriesStart = new Date(dateRange.from)
     const seriesEnd = new Date(dateRange.to)
 
     const revenueMap = new Map<string, number>()
-    const clientsSeriesMap = new Map<string, number>()
-
     curPeriodFinances.forEach(f => {
       if (f.type === 'revenu' || f.type === 'arrhes') {
         const key = getGroupKey(f.date, groupBy)
@@ -318,29 +274,37 @@ export function useDashboardData(): DashboardData {
       }
     })
 
+    const clientsTotalMap = new Map<string, number>()
+    const clientsNouveauxMap = new Map<string, number>()
+    const clientsReguliersMap = new Map<string, number>()
     periodClients.forEach(c => {
       const key = getGroupKey(c.created_at.split('T')[0], groupBy)
-      clientsSeriesMap.set(key, (clientsSeriesMap.get(key) || 0) + 1)
+      clientsTotalMap.set(key, (clientsTotalMap.get(key) || 0) + 1)
+      if (c.tag === 'Nouveau') {
+        clientsNouveauxMap.set(key, (clientsNouveauxMap.get(key) || 0) + 1)
+      } else if (c.tag === 'Régulier') {
+        clientsReguliersMap.set(key, (clientsReguliersMap.get(key) || 0) + 1)
+      }
     })
 
     const allKeys = generateKeys(seriesStart, seriesEnd, groupBy)
     const revSeries = allKeys.map(k => ({ label: k, value: revenueMap.get(k) || 0 }))
-    const cliSeries = allKeys.map(k => ({ label: k, value: clientsSeriesMap.get(k) || 0 }))
+    const cliSeries: ClientSeriesPoint[] = allKeys.map(k => ({
+      label: k,
+      value: clientsTotalMap.get(k) || 0,
+      nouveaux: clientsNouveauxMap.get(k) || 0,
+      reguliers: clientsReguliersMap.get(k) || 0,
+    }))
 
     if (fetchId !== fetchIdRef.current) return
 
-    // --- Update all state ---
+    // --- Update state ---
     setFirstName(fName)
     setTodayAppointments(todayEnriched)
     setCurrentMonth(calcFinances(curPeriodFinances))
     setPreviousMonth(calcFinances(prevPeriodFinances))
     setClientsThisMonth(periodClients.length)
     setClientsLastMonth(prevPeriodClients.length)
-    setTotalClients(periodClients.length)
-    setRegularClients(regulars)
-    setNewClients(periodClients.filter(c => c.tag === 'Nouveau').length)
-    setUpcomingAppointments(periodApptsEnriched)
-    setRecentClients(periodClients.slice(0, 5))
     setRevenueSeries(revSeries)
     setClientsSeries(cliSeries)
     setLoading(false)
@@ -357,11 +321,6 @@ export function useDashboardData(): DashboardData {
     previousMonth,
     clientsThisMonth,
     clientsLastMonth,
-    totalClients,
-    regularClients,
-    newClients,
-    upcomingAppointments,
-    recentClients,
     revenueSeries,
     clientsSeries,
     dateRange,
