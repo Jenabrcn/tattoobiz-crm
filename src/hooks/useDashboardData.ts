@@ -42,7 +42,13 @@ interface PeriodPoint {
   value: number
 }
 
-export type PeriodFilter = 'month' | '30d' | '3m' | '12m'
+export type PeriodPreset = 'this_month' | 'last_30_days' | 'last_month' | 'all_time' | 'custom'
+
+export interface DateRange {
+  from: string
+  to: string
+  preset: PeriodPreset
+}
 
 export interface DashboardData {
   loading: boolean
@@ -61,8 +67,9 @@ export interface DashboardData {
   recentClients: RecentClient[]
   revenueSeries: PeriodPoint[]
   clientsSeries: PeriodPoint[]
-  periodFilter: PeriodFilter
-  setPeriodFilter: (f: PeriodFilter) => void
+  dateRange: DateRange
+  setPreset: (p: PeriodPreset) => void
+  setCustomRange: (from: string, to: string) => void
 }
 
 function startOfMonth(d: Date) {
@@ -83,6 +90,47 @@ function calcFinances(rows: any[]): MonthlyFinance {
   const revenue = rows.filter(f => f.type === 'revenu' || f.type === 'arrhes').reduce((s, f) => s + Number(f.amount), 0)
   const expenses = rows.filter(f => f.type === 'depense').reduce((s, f) => s + Number(f.amount), 0)
   return { revenue, expenses, net: revenue - expenses }
+}
+
+function getDefaultRange(): DateRange {
+  const now = new Date()
+  return { from: fmtDate(startOfMonth(now)), to: fmtDate(now), preset: 'this_month' }
+}
+
+export function getRangeForPreset(preset: PeriodPreset): DateRange {
+  const now = new Date()
+  const today = fmtDate(now)
+  switch (preset) {
+    case 'this_month':
+      return { from: fmtDate(startOfMonth(now)), to: today, preset }
+    case 'last_30_days':
+      return { from: fmtDate(new Date(now.getTime() - 30 * 86400000)), to: today, preset }
+    case 'last_month': {
+      const s = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+      const e = new Date(now.getFullYear(), now.getMonth(), 0)
+      return { from: fmtDate(s), to: fmtDate(e), preset }
+    }
+    case 'all_time':
+      return { from: '2000-01-01', to: today, preset }
+    default:
+      return getDefaultRange()
+  }
+}
+
+function getPreviousRange(range: DateRange): { from: string; to: string } {
+  const fromDate = new Date(range.from)
+  const toDate = new Date(range.to)
+  const lengthMs = toDate.getTime() - fromDate.getTime()
+  const prevTo = new Date(fromDate.getTime() - 86400000)
+  const prevFrom = new Date(prevTo.getTime() - lengthMs)
+  return { from: fmtDate(prevFrom), to: fmtDate(prevTo) }
+}
+
+function getGroupBy(from: string, to: string): 'day' | 'week' | 'month' {
+  const days = (new Date(to).getTime() - new Date(from).getTime()) / 86400000
+  if (days <= 35) return 'day'
+  if (days <= 120) return 'week'
+  return 'month'
 }
 
 const FETCH_TIMEOUT = 10_000
@@ -113,7 +161,7 @@ export function useDashboardData(): DashboardData {
   const [recentClients, setRecentClients] = useState<RecentClient[]>([])
   const [revenueSeries, setRevenueSeries] = useState<PeriodPoint[]>([])
   const [clientsSeries, setClientsSeries] = useState<PeriodPoint[]>([])
-  const [periodFilter, setPeriodFilter] = useState<PeriodFilter>('month')
+  const [dateRange, setDateRange] = useState<DateRange>(getDefaultRange())
   const fetchIdRef = useRef(0)
   const [retryKey, setRetryKey] = useState(0)
 
@@ -123,13 +171,20 @@ export function useDashboardData(): DashboardData {
     setRetryKey(k => k + 1)
   }
 
+  const setPreset = (preset: PeriodPreset) => {
+    setDateRange(getRangeForPreset(preset))
+  }
+
+  const setCustomRange = (from: string, to: string) => {
+    setDateRange({ from, to, preset: 'custom' })
+  }
+
   useEffect(() => {
     if (!user) return
-
     const fetchId = ++fetchIdRef.current
     fetchAll(fetchId)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, periodFilter, retryKey])
+  }, [user, dateRange.from, dateRange.to, retryKey])
 
   async function fetchAll(fetchId: number) {
     if (!user) return
@@ -138,28 +193,17 @@ export function useDashboardData(): DashboardData {
 
     const now = new Date()
     const today = fmtDate(now)
-    const monthStart = fmtDate(startOfMonth(now))
-    const prevMonthStart = fmtDate(startOfMonth(new Date(now.getFullYear(), now.getMonth() - 1, 1)))
-    const prevMonthEnd = fmtDate(new Date(now.getFullYear(), now.getMonth(), 0))
-    const thirtyDaysAgo = fmtDate(new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000))
 
-    // Compute time series date range
-    let seriesStart: Date
-    let groupBy: 'day' | 'week' | 'month'
-    switch (periodFilter) {
-      case 'month': seriesStart = startOfMonth(now); groupBy = 'day'; break
-      case '30d': seriesStart = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000); groupBy = 'day'; break
-      case '3m': seriesStart = new Date(now.getFullYear(), now.getMonth() - 3, 1); groupBy = 'week'; break
-      case '12m': seriesStart = new Date(now.getFullYear() - 1, now.getMonth(), 1); groupBy = 'month'; break
-    }
+    // Previous period for evolution comparison
+    const isAllTime = dateRange.preset === 'all_time'
+    const prevRange = isAllTime ? null : getPreviousRange(dateRange)
+    const groupBy = getGroupBy(dateRange.from, dateRange.to)
 
-    // Use the earliest date needed across all finance queries
-    const financeStartDate = new Date(Math.min(seriesStart.getTime(), new Date(prevMonthStart).getTime()))
-    const financeStart = fmtDate(financeStartDate)
+    // Earliest date needed for finance query
+    const financeStart = prevRange ? prevRange.from : dateRange.from
 
     let profileResult, clientsResult, appointmentsResult, financesResult
     try {
-      // 4 parallel queries with 10s timeout
       ;[profileResult, clientsResult, appointmentsResult, financesResult] = await withTimeout(Promise.all([
         supabase
           .from('users')
@@ -179,7 +223,7 @@ export function useDashboardData(): DashboardData {
           .from('finances')
           .select('type, date, amount')
           .gte('date', financeStart)
-          .lte('date', today)
+          .lte('date', dateRange.to)
           .order('date'),
       ]))
     } catch (err) {
@@ -190,13 +234,10 @@ export function useDashboardData(): DashboardData {
       return
     }
 
-    // Stale fetch guard
     if (fetchId !== fetchIdRef.current) return
 
-    // Check for Supabase errors (auth expired, RLS, etc.)
     const queryError = profileResult.error || clientsResult.error || appointmentsResult.error || financesResult.error
     if (queryError) {
-      // Auth errors → don't show error, ProtectedRoute will redirect
       if (queryError.message?.includes('JWT') || queryError.message?.includes('token') || queryError.code === 'PGRST301') {
         supabase.auth.signOut()
         return
@@ -210,23 +251,30 @@ export function useDashboardData(): DashboardData {
     const profile = profileResult.data as { first_name: string | null } | null
     const fName = profile?.first_name || user.email?.split('@')[0] || ''
 
-    // --- Clients (compute all counts from single query) ---
+    // --- Clients ---
     const allClients = (clientsResult.data || []) as RecentClient[]
     const clientMap = new Map(allClients.map(c => [c.id, c]))
-    const total = allClients.length
-    const recent5 = allClients.slice(0, 5)
-    const curClients = allClients.filter(c => c.created_at >= monthStart).length
-    const prevClientsCount = allClients.filter(c => c.created_at >= prevMonthStart && c.created_at <= prevMonthEnd + 'T23:59:59').length
-    const newC = allClients.filter(c => c.created_at >= thirtyDaysAgo).length
 
-    // --- Appointments (compute today, upcoming, regular, active from single query) ---
+    const periodClients = allClients.filter(c => {
+      const d = c.created_at.split('T')[0]
+      return d >= dateRange.from && d <= dateRange.to
+    })
+    const prevPeriodClients = prevRange
+      ? allClients.filter(c => {
+          const d = c.created_at.split('T')[0]
+          return d >= prevRange.from && d <= prevRange.to
+        })
+      : []
+
+    // --- Appointments ---
     const allAppts = (appointmentsResult.data || []) as { id: string; client_id: string; date: string; time: string; description: string | null; type: string }[]
 
+    // Today's appointments (always unfiltered — for the banner)
     const todayAppts = allAppts.filter(a => a.date === today)
-    const futureAppts = allAppts.filter(a => a.date >= today)
-    const upcoming5 = futureAppts.slice(0, 5)
 
-    // Enrich with client names
+    // Appointments within the selected period
+    const periodAppts = allAppts.filter(a => a.date >= dateRange.from && a.date <= dateRange.to)
+
     const enrichWithClients = (appts: typeof allAppts) =>
       appts.map(a => {
         const c = clientMap.get(a.client_id)
@@ -242,57 +290,57 @@ export function useDashboardData(): DashboardData {
       })
 
     const todayEnriched = enrichWithClients(todayAppts)
-    const upcomingEnriched = enrichWithClients(upcoming5)
+    const periodApptsEnriched = enrichWithClients(periodAppts.slice(0, 5))
 
-    // Regular clients (>1 appointment)
-    const apptCountMap = new Map<string, number>()
-    allAppts.forEach(a => apptCountMap.set(a.client_id, (apptCountMap.get(a.client_id) || 0) + 1))
-    const regulars = [...apptCountMap.values()].filter(v => v > 1).length
+    // Regular clients (>1 appointment within period)
+    const periodApptCountMap = new Map<string, number>()
+    periodAppts.forEach(a => periodApptCountMap.set(a.client_id, (periodApptCountMap.get(a.client_id) || 0) + 1))
+    const regulars = [...periodApptCountMap.values()].filter(v => v > 1).length
 
-    // --- Finances (compute current month, previous month, time series from single query) ---
+    // --- Finances ---
     const allFinances = (financesResult.data || []) as { type: string; date: string; amount: number }[]
-    const curMonthFinances = allFinances.filter(f => f.date >= monthStart && f.date <= today)
-    const prevMonthFinances = allFinances.filter(f => f.date >= prevMonthStart && f.date <= prevMonthEnd)
+    const curPeriodFinances = allFinances.filter(f => f.date >= dateRange.from && f.date <= dateRange.to)
+    const prevPeriodFinances = prevRange
+      ? allFinances.filter(f => f.date >= prevRange.from && f.date <= prevRange.to)
+      : []
 
-    const seriesStartStr = fmtDate(seriesStart)
-    const seriesFinances = allFinances.filter(f => f.date >= seriesStartStr && f.date <= today)
-    const seriesClientsList = allClients.filter(c => c.created_at.split('T')[0] >= seriesStartStr && c.created_at.split('T')[0] <= today)
+    // Time series
+    const seriesStart = new Date(dateRange.from)
+    const seriesEnd = new Date(dateRange.to)
 
-    // Build time series
     const revenueMap = new Map<string, number>()
     const clientsSeriesMap = new Map<string, number>()
 
-    seriesFinances.forEach(f => {
+    curPeriodFinances.forEach(f => {
       if (f.type === 'revenu' || f.type === 'arrhes') {
         const key = getGroupKey(f.date, groupBy)
         revenueMap.set(key, (revenueMap.get(key) || 0) + Number(f.amount))
       }
     })
 
-    seriesClientsList.forEach(c => {
+    periodClients.forEach(c => {
       const key = getGroupKey(c.created_at.split('T')[0], groupBy)
       clientsSeriesMap.set(key, (clientsSeriesMap.get(key) || 0) + 1)
     })
 
-    const allKeys = generateKeys(seriesStart, now, groupBy)
+    const allKeys = generateKeys(seriesStart, seriesEnd, groupBy)
     const revSeries = allKeys.map(k => ({ label: k, value: revenueMap.get(k) || 0 }))
     const cliSeries = allKeys.map(k => ({ label: k, value: clientsSeriesMap.get(k) || 0 }))
 
-    // Stale fetch guard (check again after processing)
     if (fetchId !== fetchIdRef.current) return
 
     // --- Update all state ---
     setFirstName(fName)
     setTodayAppointments(todayEnriched)
-    setCurrentMonth(calcFinances(curMonthFinances))
-    setPreviousMonth(calcFinances(prevMonthFinances))
-    setClientsThisMonth(curClients)
-    setClientsLastMonth(prevClientsCount)
-    setTotalClients(total)
+    setCurrentMonth(calcFinances(curPeriodFinances))
+    setPreviousMonth(calcFinances(prevPeriodFinances))
+    setClientsThisMonth(periodClients.length)
+    setClientsLastMonth(prevPeriodClients.length)
+    setTotalClients(periodClients.length)
     setRegularClients(regulars)
-    setNewClients(newC)
-    setUpcomingAppointments(upcomingEnriched)
-    setRecentClients(recent5)
+    setNewClients(periodClients.filter(c => c.tag === 'Nouveau').length)
+    setUpcomingAppointments(periodApptsEnriched)
+    setRecentClients(periodClients.slice(0, 5))
     setRevenueSeries(revSeries)
     setClientsSeries(cliSeries)
     setLoading(false)
@@ -316,8 +364,9 @@ export function useDashboardData(): DashboardData {
     recentClients,
     revenueSeries,
     clientsSeries,
-    periodFilter,
-    setPeriodFilter,
+    dateRange,
+    setPreset,
+    setCustomRange,
   }
 }
 

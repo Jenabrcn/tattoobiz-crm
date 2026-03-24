@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect } from 'react'
 import {
   TrendingUp,
   TrendingDown,
@@ -21,19 +22,7 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 import { useDashboardData, getEvolution } from '../hooks/useDashboardData'
-import type { PeriodFilter } from '../hooks/useDashboardData'
-
-const MONTHS_FR = [
-  'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
-  'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre',
-]
-
-const periodLabels: Record<PeriodFilter, string> = {
-  month: 'Ce mois',
-  '30d': '30j',
-  '3m': '3 mois',
-  '12m': '12 mois',
-}
+import type { PeriodPreset, DateRange } from '../hooks/useDashboardData'
 
 function formatCurrency(n: number) {
   return n.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })
@@ -67,10 +56,67 @@ function getAvatarColor(name: string) {
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length]
 }
 
+function getPeriodLabel(dateRange: DateRange): string {
+  switch (dateRange.preset) {
+    case 'this_month': return 'Ce mois'
+    case 'last_30_days': return '30 derniers jours'
+    case 'last_month': return 'Mois dernier'
+    case 'all_time': return 'Depuis le début'
+    case 'custom': {
+      const fmtShort = (d: string) =>
+        new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
+      return `${fmtShort(dateRange.from)} — ${fmtShort(dateRange.to)}`
+    }
+  }
+}
+
+const PRESETS: { value: PeriodPreset; label: string }[] = [
+  { value: 'this_month', label: 'Ce mois' },
+  { value: 'last_30_days', label: '30 derniers jours' },
+  { value: 'last_month', label: 'Mois dernier' },
+  { value: 'all_time', label: 'Depuis le début' },
+]
+
 export default function DashboardPage() {
   const data = useDashboardData()
-  const now = new Date()
-  const monthLabel = `${MONTHS_FR[now.getMonth()]} ${now.getFullYear()}`
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [customFrom, setCustomFrom] = useState('')
+  const [customTo, setCustomTo] = useState('')
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!dropdownOpen) return
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [dropdownOpen])
+
+  const periodLabel = getPeriodLabel(data.dateRange)
+
+  const handlePreset = (preset: PeriodPreset) => {
+    data.setPreset(preset)
+    setCustomFrom('')
+    setCustomTo('')
+    setDropdownOpen(false)
+  }
+
+  const handleApply = () => {
+    if (customFrom && customTo && customFrom <= customTo) {
+      data.setCustomRange(customFrom, customTo)
+      setDropdownOpen(false)
+    }
+  }
+
+  const handleClear = () => {
+    data.setPreset('this_month')
+    setCustomFrom('')
+    setCustomTo('')
+    setDropdownOpen(false)
+  }
 
   if (data.loading) {
     return (
@@ -113,7 +159,7 @@ export default function DashboardPage() {
     ? data.todayAppointments.map(a => `${a.client_first_name} à ${formatTime(a.time)}`).join(', ')
     : null
 
-  // Period revenue total
+  // Period totals for charts
   const periodRevenue = data.revenueSeries.reduce((s, p) => s + p.value, 0)
   const periodClients = data.clientsSeries.reduce((s, p) => s + p.value, 0)
 
@@ -126,10 +172,71 @@ export default function DashboardPage() {
             Bonjour {data.firstName} 👋
           </h1>
         </div>
-        <span className="flex items-center gap-2 text-sm font-medium text-text-secondary bg-white border border-border px-4 py-2 rounded-xl">
-          <Calendar size={16} className="text-accent" />
-          {monthLabel}
-        </span>
+        <div className="relative" ref={dropdownRef}>
+          <button
+            onClick={() => setDropdownOpen(!dropdownOpen)}
+            className="flex items-center gap-2 text-sm font-medium text-text-secondary bg-white border border-border px-4 py-2 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer"
+          >
+            <Calendar size={16} className="text-accent" />
+            {periodLabel}
+          </button>
+          {dropdownOpen && (
+            <div className="absolute right-0 top-full mt-2 bg-white rounded-xl border border-border shadow-lg p-4 z-50 w-80">
+              <p className="text-xs font-semibold text-text-muted mb-3 uppercase tracking-wide">Période</p>
+              <div className="grid grid-cols-2 gap-2 mb-4">
+                {PRESETS.map(p => (
+                  <button
+                    key={p.value}
+                    onClick={() => handlePreset(p.value)}
+                    className={`px-3 py-2 text-xs font-medium rounded-lg transition-colors ${
+                      data.dateRange.preset === p.value
+                        ? 'bg-accent text-white'
+                        : 'bg-gray-100 text-text-secondary hover:bg-gray-200'
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs font-semibold text-text-muted mb-2 uppercase tracking-wide">Dates personnalisées</p>
+              <div className="space-y-2 mb-4">
+                <div>
+                  <label className="block text-xs text-text-muted mb-1">Date de début</label>
+                  <input
+                    type="date"
+                    value={customFrom}
+                    onChange={e => setCustomFrom(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-text-muted mb-1">Date de fin</label>
+                  <input
+                    type="date"
+                    value={customTo}
+                    onChange={e => setCustomTo(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleClear}
+                  className="flex-1 px-3 py-2 text-xs font-medium rounded-lg border border-border text-text-secondary hover:bg-gray-50 transition-colors"
+                >
+                  Effacer
+                </button>
+                <button
+                  onClick={handleApply}
+                  disabled={!customFrom || !customTo || customFrom > customTo}
+                  className="flex-1 px-3 py-2 text-xs font-medium rounded-lg bg-accent text-white hover:bg-accent/90 transition-colors disabled:opacity-50"
+                >
+                  Appliquer
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Today's appointments banner */}
@@ -154,7 +261,7 @@ export default function DashboardPage() {
             <EvoBadge value={revenueEvo} />
           </div>
           <p className="text-2xl font-bold text-navy">{formatCurrency(data.currentMonth.revenue)}</p>
-          <p className="text-sm text-text-muted mt-1">Revenus du mois</p>
+          <p className="text-sm text-text-muted mt-1">Revenus</p>
         </div>
 
         {/* Expenses */}
@@ -166,7 +273,7 @@ export default function DashboardPage() {
             <EvoBadge value={expenseEvo} />
           </div>
           <p className="text-2xl font-bold text-navy">{formatCurrency(data.currentMonth.expenses)}</p>
-          <p className="text-sm text-text-muted mt-1">Dépenses du mois</p>
+          <p className="text-sm text-text-muted mt-1">Dépenses</p>
         </div>
 
         {/* Net */}
@@ -181,7 +288,7 @@ export default function DashboardPage() {
           <p className="text-sm text-text-muted mt-1">Bénéfice net</p>
         </div>
 
-        {/* Clients this month */}
+        {/* Clients */}
         <div className="bg-white rounded-xl border border-border p-5">
           <div className="flex items-center justify-between mb-3">
             <div className="p-2 rounded-lg bg-accent-light">
@@ -190,7 +297,7 @@ export default function DashboardPage() {
             <EvoBadge value={clientsEvo} />
           </div>
           <p className="text-2xl font-bold text-navy">{data.clientsThisMonth}</p>
-          <p className="text-sm text-text-muted mt-1">Clients ce mois</p>
+          <p className="text-sm text-text-muted mt-1">Clients</p>
         </div>
       </div>
 
@@ -250,7 +357,7 @@ export default function DashboardPage() {
           <div className="flex items-center justify-center h-[200px]">
             <div className="text-center">
               <p className="text-6xl font-bold text-navy">{data.totalClients}</p>
-              <p className="text-sm text-text-muted mt-2">clients au total</p>
+              <p className="text-sm text-text-muted mt-2">clients sur la période</p>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-border">
@@ -270,24 +377,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Revenue chart */}
         <div className="bg-white rounded-xl border border-border p-6">
-          <div className="flex items-start justify-between mb-1">
-            <h3 className="text-sm font-semibold text-navy">Évolution du CA</h3>
-            <div className="flex gap-1">
-              {(Object.keys(periodLabels) as PeriodFilter[]).map(f => (
-                <button
-                  key={f}
-                  onClick={() => data.setPeriodFilter(f)}
-                  className={`px-2.5 py-1 text-xs rounded-lg font-medium transition-colors ${
-                    data.periodFilter === f
-                      ? 'bg-accent text-white'
-                      : 'text-text-muted hover:bg-gray-100'
-                  }`}
-                >
-                  {periodLabels[f]}
-                </button>
-              ))}
-            </div>
-          </div>
+          <h3 className="text-sm font-semibold text-navy mb-1">Évolution du CA</h3>
           <div className="flex items-center gap-2 mb-4">
             <p className="text-xl font-bold text-navy">{formatCurrency(periodRevenue)}</p>
             <EvoBadge value={revenueEvo} />
@@ -324,9 +414,7 @@ export default function DashboardPage() {
 
         {/* Clients chart */}
         <div className="bg-white rounded-xl border border-border p-6">
-          <div className="flex items-start justify-between mb-1">
-            <h3 className="text-sm font-semibold text-navy">Clients sur la période</h3>
-          </div>
+          <h3 className="text-sm font-semibold text-navy mb-1">Clients sur la période</h3>
           <div className="flex items-center gap-2 mb-4">
             <p className="text-xl font-bold text-navy">{periodClients}</p>
             <EvoBadge value={clientsEvo} />
@@ -352,11 +440,11 @@ export default function DashboardPage() {
 
       {/* Upcoming appointments + Recent clients */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {/* Upcoming appointments */}
+        {/* Appointments */}
         <div className="bg-white rounded-xl border border-border p-6">
-          <h3 className="text-sm font-semibold text-navy mb-4">Prochains rendez-vous</h3>
+          <h3 className="text-sm font-semibold text-navy mb-4">Rendez-vous</h3>
           {data.upcomingAppointments.length === 0 ? (
-            <p className="text-sm text-text-muted py-8 text-center">Aucun rendez-vous à venir</p>
+            <p className="text-sm text-text-muted py-8 text-center">Aucun rendez-vous sur cette période</p>
           ) : (
             <div className="space-y-4">
               {data.upcomingAppointments.map(appt => (
@@ -387,7 +475,7 @@ export default function DashboardPage() {
         <div className="bg-white rounded-xl border border-border p-6">
           <h3 className="text-sm font-semibold text-navy mb-4">Clients récents</h3>
           {data.recentClients.length === 0 ? (
-            <p className="text-sm text-text-muted py-8 text-center">Aucun client pour le moment</p>
+            <p className="text-sm text-text-muted py-8 text-center">Aucun client sur cette période</p>
           ) : (
             <div className="space-y-4">
               {data.recentClients.map(client => {
