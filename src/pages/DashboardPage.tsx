@@ -473,7 +473,7 @@ export default function DashboardPage() {
 
         {/* Recent clients */}
         <div className="bg-white rounded-xl border border-border p-6">
-          <h3 className="text-sm font-semibold text-navy mb-4">Clients récents</h3>
+          <h3 className="text-sm font-semibold text-navy mb-4">Clients sur la période</h3>
           {data.recentClients.length === 0 ? (
             <p className="text-sm text-text-muted py-8 text-center">Aucun client sur cette période</p>
           ) : (
