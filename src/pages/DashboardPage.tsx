@@ -12,13 +12,6 @@ import {
   PieChart,
   Pie,
   Cell,
-  AreaChart,
-  Area,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
   ResponsiveContainer,
 } from 'recharts'
 import { useDashboardData, getEvolution } from '../hooks/useDashboardData'
@@ -63,22 +56,6 @@ const PRESETS: { value: PeriodPreset; label: string }[] = [
   { value: 'last_month', label: 'Mois dernier' },
   { value: 'all_time', label: 'Depuis le début' },
 ]
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function ClientsTooltip({ active, payload, label }: any) {
-  if (!active || !payload?.length) return null
-  const d = payload[0].payload
-  return (
-    <div className="bg-white rounded-xl shadow-lg p-3" style={{ border: '1px solid rgba(26,31,61,0.07)' }}>
-      <p className="text-xs font-semibold text-navy mb-1.5">{label}</p>
-      <p className="text-sm font-bold text-navy">{d.value} client{d.value !== 1 ? 's' : ''} ajouté{d.value !== 1 ? 's' : ''}</p>
-      <div className="flex gap-3 mt-1 text-xs text-text-muted">
-        <span>Nouveaux : {d.nouveaux}</span>
-        <span>Réguliers : {d.reguliers}</span>
-      </div>
-    </div>
-  )
-}
 
 export default function DashboardPage() {
   const data = useDashboardData()
@@ -148,7 +125,6 @@ export default function DashboardPage() {
   const netEvo = getEvolution(data.currentMonth.net, data.previousMonth.net)
   const clientsEvo = getEvolution(data.clientsThisMonth, data.clientsLastMonth)
 
-  // Pie chart data
   const marginPct = data.currentMonth.revenue > 0
     ? Math.round((data.currentMonth.net / data.currentMonth.revenue) * 100)
     : 0
@@ -157,24 +133,17 @@ export default function DashboardPage() {
     { name: 'Dépenses', value: data.currentMonth.expenses, color: '#dc2626' },
   ]
 
-  // Today alert text
   const todayAlertText = data.todayAppointments.length > 0
     ? data.todayAppointments.map(a => `${a.client_first_name} à ${formatTime(a.time)}`).join(', ')
     : null
 
-  // Period totals for charts
-  const periodRevenue = data.revenueSeries.reduce((s, p) => s + p.value, 0)
-  const periodClients = data.clientsSeries.reduce((s, p) => s + p.value, 0)
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Header */}
       <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-navy">
-            Bonjour {data.firstName} 👋
-          </h1>
-        </div>
+        <h1 className="text-2xl font-bold text-navy">
+          Bonjour {data.firstName} 👋
+        </h1>
         <div className="relative" ref={dropdownRef}>
           <button
             onClick={() => setDropdownOpen(!dropdownOpen)}
@@ -254,8 +223,8 @@ export default function DashboardPage() {
       )}
 
       {/* 4 Stat Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-        <div className="bg-white rounded-xl border border-border p-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="bg-white rounded-xl border border-border p-6">
           <div className="flex items-center justify-between mb-3">
             <div className="p-2 rounded-lg bg-green/10">
               <DollarSign size={18} className="text-green" />
@@ -266,7 +235,7 @@ export default function DashboardPage() {
           <p className="text-sm text-text-muted mt-1">Revenus</p>
         </div>
 
-        <div className="bg-white rounded-xl border border-border p-5">
+        <div className="bg-white rounded-xl border border-border p-6">
           <div className="flex items-center justify-between mb-3">
             <div className="p-2 rounded-lg bg-red/10">
               <CreditCard size={18} className="text-red" />
@@ -277,7 +246,7 @@ export default function DashboardPage() {
           <p className="text-sm text-text-muted mt-1">Dépenses</p>
         </div>
 
-        <div className="bg-white rounded-xl border border-border p-5">
+        <div className="bg-white rounded-xl border border-border p-6">
           <div className="flex items-center justify-between mb-3">
             <div className="p-2 rounded-lg bg-green/10">
               <TrendingUp size={18} className="text-green" />
@@ -288,7 +257,7 @@ export default function DashboardPage() {
           <p className="text-sm text-text-muted mt-1">Bénéfice net</p>
         </div>
 
-        <div className="bg-white rounded-xl border border-border p-5">
+        <div className="bg-white rounded-xl border border-border p-6">
           <div className="flex items-center justify-between mb-3">
             <div className="p-2 rounded-lg bg-accent-light">
               <Users size={18} className="text-accent" />
@@ -300,114 +269,52 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Pie chart + Revenue chart */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {/* Pie chart */}
-        <div className="bg-white rounded-xl border border-border p-6">
-          <h3 className="text-sm font-semibold text-navy mb-4">Répartition revenus / dépenses</h3>
-          <div className="flex items-center justify-center">
-            <div className="relative">
-              <ResponsiveContainer width={200} height={200}>
-                <PieChart>
-                  <Pie
-                    data={pieData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={90}
-                    dataKey="value"
-                    strokeWidth={0}
-                  >
-                    {pieData.map((entry, i) => (
-                      <Cell key={i} fill={entry.color} />
-                    ))}
-                  </Pie>
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-navy">{marginPct}%</p>
-                  <p className="text-xs text-text-muted">Marge</p>
-                </div>
+      {/* Pie chart — full width, centered */}
+      <div className="bg-white rounded-xl border border-border p-8">
+        <h3 className="text-sm font-semibold text-navy mb-6 text-center">Répartition bénéfice / dépenses</h3>
+        <div className="flex items-center justify-center gap-12">
+          <div className="relative">
+            <ResponsiveContainer width={220} height={220}>
+              <PieChart>
+                <Pie
+                  data={pieData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={65}
+                  outerRadius={100}
+                  dataKey="value"
+                  strokeWidth={0}
+                >
+                  {pieData.map((entry, i) => (
+                    <Cell key={i} fill={entry.color} />
+                  ))}
+                </Pie>
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="text-center">
+                <p className="text-3xl font-bold text-navy">{marginPct}%</p>
+                <p className="text-xs text-text-muted">Marge</p>
               </div>
             </div>
-            <div className="ml-6 space-y-3">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-green" />
-                <div>
-                  <p className="text-sm font-medium text-navy">Bénéfice</p>
-                  <p className="text-xs text-text-muted">{formatCurrency(Math.max(data.currentMonth.net, 0))}</p>
-                </div>
+          </div>
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-3.5 h-3.5 rounded-full bg-green" />
+              <div>
+                <p className="text-sm font-medium text-navy">Bénéfice</p>
+                <p className="text-sm text-text-muted">{formatCurrency(Math.max(data.currentMonth.net, 0))}</p>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-red" />
-                <div>
-                  <p className="text-sm font-medium text-navy">Dépenses</p>
-                  <p className="text-xs text-text-muted">{formatCurrency(data.currentMonth.expenses)}</p>
-                </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="w-3.5 h-3.5 rounded-full bg-red" />
+              <div>
+                <p className="text-sm font-medium text-navy">Dépenses</p>
+                <p className="text-sm text-text-muted">{formatCurrency(data.currentMonth.expenses)}</p>
               </div>
             </div>
           </div>
         </div>
-
-        {/* Revenue chart */}
-        <div className="bg-white rounded-xl border border-border p-6">
-          <h3 className="text-sm font-semibold text-navy mb-1">Évolution du CA</h3>
-          <div className="flex items-center gap-2 mb-4">
-            <p className="text-xl font-bold text-navy">{formatCurrency(periodRevenue)}</p>
-            <EvoBadge value={revenueEvo} />
-          </div>
-          <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={data.revenueSeries}>
-              <defs>
-                <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#F26522" stopOpacity={0.2} />
-                  <stop offset="95%" stopColor="#F26522" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <XAxis
-                dataKey="label"
-                tick={{ fontSize: 11, fill: '#8C90A0' }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <YAxis hide />
-              <Tooltip
-                contentStyle={{ borderRadius: 12, border: '1px solid rgba(26,31,61,0.07)', fontSize: 12 }}
-                formatter={(v) => [formatCurrency(Number(v)), 'CA']}
-              />
-              <Area
-                type="monotone"
-                dataKey="value"
-                stroke="#F26522"
-                strokeWidth={2}
-                fill="url(#colorRevenue)"
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* Clients chart — full width */}
-      <div className="bg-white rounded-xl border border-border p-6">
-        <h3 className="text-sm font-semibold text-navy mb-1">Clients sur la période</h3>
-        <div className="flex items-center gap-2 mb-4">
-          <p className="text-xl font-bold text-navy">{periodClients}</p>
-          <EvoBadge value={clientsEvo} />
-        </div>
-        <ResponsiveContainer width="100%" height={220}>
-          <BarChart data={data.clientsSeries}>
-            <XAxis
-              dataKey="label"
-              tick={{ fontSize: 11, fill: '#8C90A0' }}
-              axisLine={false}
-              tickLine={false}
-            />
-            <YAxis hide />
-            <Tooltip content={<ClientsTooltip />} cursor={{ fill: 'rgba(242,101,34,0.06)' }} />
-            <Bar dataKey="value" fill="#F26522" radius={[4, 4, 0, 0]} barSize={28} />
-          </BarChart>
-        </ResponsiveContainer>
       </div>
     </div>
   )
