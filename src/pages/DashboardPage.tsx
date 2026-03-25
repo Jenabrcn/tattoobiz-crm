@@ -14,12 +14,6 @@ import {
   Clock,
   ArrowRight,
 } from 'lucide-react'
-import {
-  PieChart,
-  Pie,
-  Cell,
-  ResponsiveContainer,
-} from 'recharts'
 import { supabase } from '../lib/supabase'
 import { useDashboardData, getEvolution } from '../hooks/useDashboardData'
 import type { PeriodPreset, DateRange, UpcomingAppointment } from '../hooks/useDashboardData'
@@ -173,14 +167,6 @@ export default function DashboardPage() {
   const netEvo = getEvolution(data.currentMonth.net, data.previousMonth.net)
   const clientsEvo = getEvolution(data.clientsThisMonth, data.clientsLastMonth)
 
-  const marginPct = data.currentMonth.revenue > 0
-    ? Math.round((data.currentMonth.net / data.currentMonth.revenue) * 100)
-    : 0
-  const pieData = [
-    { name: 'Bénéfice', value: Math.max(data.currentMonth.net, 0), color: '#16a34a' },
-    { name: 'Dépenses', value: data.currentMonth.expenses, color: '#dc2626' },
-  ]
-
   return (
     <div className="space-y-8">
       {/* ===== SECTION 1: Header + Alerte RDV ===== */}
@@ -328,54 +314,6 @@ export default function DashboardPage() {
           </div>
         </div>
         <p className="text-xs text-text-muted text-center">Données calculées sur la période sélectionnée</p>
-
-        {/* Pie chart */}
-        <div className="bg-white rounded-xl border border-border p-8">
-          <h3 className="text-sm font-semibold text-navy mb-6 text-center">Répartition bénéfice / dépenses</h3>
-          <div className="flex items-center justify-center gap-12">
-            <div className="relative">
-              <ResponsiveContainer width={220} height={220}>
-                <PieChart>
-                  <Pie
-                    data={pieData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={65}
-                    outerRadius={100}
-                    dataKey="value"
-                    strokeWidth={0}
-                  >
-                    {pieData.map((entry, i) => (
-                      <Cell key={i} fill={entry.color} />
-                    ))}
-                  </Pie>
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="text-center">
-                  <p className="text-3xl font-bold text-navy">{marginPct}%</p>
-                  <p className="text-xs text-text-muted">Marge</p>
-                </div>
-              </div>
-            </div>
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="w-3.5 h-3.5 rounded-full bg-green" />
-                <div>
-                  <p className="text-sm font-medium text-navy">Bénéfice</p>
-                  <p className="text-sm text-text-muted">{formatCurrency(Math.max(data.currentMonth.net, 0))}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-3.5 h-3.5 rounded-full bg-red" />
-                <div>
-                  <p className="text-sm font-medium text-navy">Dépenses</p>
-                  <p className="text-sm text-text-muted">{formatCurrency(data.currentMonth.expenses)}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* ===== SECTION 3: Mes prochains rendez-vous ===== */}
