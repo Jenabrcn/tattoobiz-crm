@@ -48,7 +48,6 @@ export function useAgendaData() {
   const [appointments, setAppointments] = useState<AgendaAppointment[]>([])
   const [currentDate, setCurrentDate] = useState(new Date())
   const [viewMode, setViewMode] = useState<ViewMode>('month')
-  const [monthCount, setMonthCount] = useState(0)
 
   const fetchAppointments = useCallback(async () => {
     if (!user) return
@@ -112,20 +111,8 @@ export function useAgendaData() {
       } else {
         setAppointments([])
       }
-
-      // Month count for header
-      const ms = startOfMonth(currentDate)
-      const me = endOfMonth(currentDate)
-      const { count } = await supabase
-        .from('appointments')
-        .select('*', { count: 'exact', head: true })
-        .gte('date', fmtDate(ms))
-        .lte('date', fmtDate(me))
-      setMonthCount(count || 0)
     } catch {
-      // On error, show empty state instead of blocking UI
       setAppointments([])
-      setMonthCount(0)
     }
 
     setLoading(false)
@@ -166,6 +153,23 @@ export function useAgendaData() {
   const getAppointmentsForDate = (dateStr: string) =>
     appointments.filter(a => a.date === dateStr)
 
+  // View count — adapts to current view
+  let viewCount: number
+  if (viewMode === 'day') {
+    const dayStr = fmtDate(currentDate)
+    viewCount = appointments.filter(a => a.date === dayStr).length
+  } else if (viewMode === 'week') {
+    const ws = startOfWeek(currentDate)
+    const we = endOfWeek(currentDate)
+    const wsStr = fmtDate(ws)
+    const weStr = fmtDate(we)
+    viewCount = appointments.filter(a => a.date >= wsStr && a.date <= weStr).length
+  } else {
+    const ms = fmtDate(startOfMonth(currentDate))
+    const me = fmtDate(endOfMonth(currentDate))
+    viewCount = appointments.filter(a => a.date >= ms && a.date <= me).length
+  }
+
   // Today's appointments
   const today = fmtDate(new Date())
   const todayAppointments = appointments.filter(a => a.date === today)
@@ -181,7 +185,7 @@ export function useAgendaData() {
     currentDate,
     viewMode,
     setViewMode,
-    monthCount,
+    viewCount,
     goToday,
     goPrev,
     goNext,
