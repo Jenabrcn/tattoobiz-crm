@@ -10,6 +10,7 @@ import {
   Users,
   UserPlus,
   ShoppingBag,
+  Download,
 } from 'lucide-react'
 import { useClientsData } from '../hooks/useClientsData'
 import type { TagFilter, ClientWithStats } from '../hooks/useClientsData'
@@ -67,13 +68,43 @@ export default function ClientsPage() {
           <h1 className="text-2xl font-bold text-navy">Clients</h1>
           <p className="text-text-secondary mt-1">{data.totalCount} clients dans ta base</p>
         </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2 px-5 py-2.5 bg-accent text-white font-medium rounded-xl hover:bg-accent/90 transition-colors"
-        >
-          <Plus size={18} />
-          Ajouter un client
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => {
+              const rows = data.allClients.map(c => ({
+                Prénom: c.first_name,
+                Nom: c.last_name,
+                Email: c.email || '',
+                Téléphone: c.phone || '',
+                Instagram: c.instagram || '',
+                Ville: c.city || '',
+                Tag: c.tag || '',
+                'Date de création': c.created_at?.split('T')[0] || '',
+              }))
+              if (rows.length === 0) return
+              const headers = Object.keys(rows[0])
+              const csv = [headers.join(';'), ...rows.map(r => headers.map(h => `"${(r as Record<string, string>)[h].replace(/"/g, '""')}"`).join(';'))].join('\n')
+              const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+              const url = URL.createObjectURL(blob)
+              const a = document.createElement('a')
+              a.href = url
+              a.download = 'clients.csv'
+              a.click()
+              URL.revokeObjectURL(url)
+            }}
+            className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl border border-border text-text-secondary hover:bg-gray-50 transition-colors"
+          >
+            <Download size={16} />
+            Exporter
+          </button>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center gap-2 px-5 py-2.5 bg-accent text-white font-medium rounded-xl hover:bg-accent/90 transition-colors"
+          >
+            <Plus size={18} />
+            Ajouter un client
+          </button>
+        </div>
       </div>
 
       {/* Search */}
