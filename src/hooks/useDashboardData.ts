@@ -40,12 +40,25 @@ export interface DateRange {
   preset: PeriodPreset
 }
 
+export interface UpcomingAppointment {
+  id: string
+  date: string
+  time: string
+  duration_minutes: number
+  description: string | null
+  type: string
+  client_id: string
+  client_first_name: string
+  client_last_name: string
+}
+
 export interface DashboardData {
   loading: boolean
   error: string | null
   retry: () => void
   firstName: string
   todayAppointments: TodayAppointment[]
+  upcomingAppointments: UpcomingAppointment[]
   currentMonth: MonthlyFinance
   previousMonth: MonthlyFinance
   clientsThisMonth: number
@@ -135,6 +148,7 @@ export function useDashboardData(): DashboardData {
   const [error, setError] = useState<string | null>(null)
   const [firstName, setFirstName] = useState('')
   const [todayAppointments, setTodayAppointments] = useState<TodayAppointment[]>([])
+  const [upcomingAppointments, setUpcomingAppointments] = useState<UpcomingAppointment[]>([])
   const [currentMonth, setCurrentMonth] = useState<MonthlyFinance>({ revenue: 0, expenses: 0, net: 0 })
   const [previousMonth, setPreviousMonth] = useState<MonthlyFinance>({ revenue: 0, expenses: 0, net: 0 })
   const [clientsThisMonth, setClientsThisMonth] = useState(0)
@@ -180,9 +194,9 @@ export function useDashboardData(): DashboardData {
 
     const financeStart = prevRange ? prevRange.from : dateRange.from
 
-    let profileResult, clientsResult, appointmentsResult, financesResult
+    let profileResult, clientsResult, appointmentsResult, financesResult, upcomingResult
     try {
-      ;[profileResult, clientsResult, appointmentsResult, financesResult] = await withTimeout(Promise.all([
+      ;[profileResult, clientsResult, appointmentsResult, financesResult, upcomingResult] = await withTimeout(Promise.all([
         supabase
           .from('users')
           .select('first_name')
@@ -203,6 +217,13 @@ export function useDashboardData(): DashboardData {
           .gte('date', financeStart)
           .lte('date', dateRange.to)
           .order('date'),
+        supabase
+          .from('appointments')
+          .select('id, client_id, date, time, duration_minutes, description, type')
+          .gte('date', today)
+          .order('date')
+          .order('time')
+          .limit(10),
       ]))
     } catch (err) {
       if (fetchId !== fetchIdRef.current) return
@@ -214,7 +235,7 @@ export function useDashboardData(): DashboardData {
 
     if (fetchId !== fetchIdRef.current) return
 
-    const queryError = profileResult.error || clientsResult.error || appointmentsResult.error || financesResult.error
+    const queryError = profileResult.error || clientsResult.error || appointmentsResult.error || financesResult.error || upcomingResult.error
     if (queryError) {
       if (queryError.message?.includes('JWT') || queryError.message?.includes('token') || queryError.code === 'PGRST301') {
         supabase.auth.signOut()
@@ -258,6 +279,23 @@ export function useDashboardData(): DashboardData {
         client_first_name: c?.first_name || '',
         client_last_name: c?.last_name || '',
         date: a.date,
+      }
+    })
+
+    // --- Upcoming appointments (independent of period filter) ---
+    const upcomingAppts = (upcomingResult.data || []) as { id: string; client_id: string; date: string; time: string; duration_minutes: number; description: string | null; type: string }[]
+    const upcomingEnriched: UpcomingAppointment[] = upcomingAppts.map(a => {
+      const c = clientMap.get(a.client_id)
+      return {
+        id: a.id,
+        date: a.date,
+        time: a.time,
+        duration_minutes: a.duration_minutes,
+        description: a.description,
+        type: a.type,
+        client_id: a.client_id,
+        client_first_name: c?.first_name || '',
+        client_last_name: c?.last_name || '',
       }
     })
 
@@ -307,6 +345,7 @@ export function useDashboardData(): DashboardData {
     // --- Update state ---
     setFirstName(fName)
     setTodayAppointments(todayEnriched)
+    setUpcomingAppointments(upcomingEnriched)
     setCurrentMonth(calcFinances(curPeriodFinances))
     setPreviousMonth(calcFinances(prevPeriodFinances))
     setClientsThisMonth(periodClients.length)
@@ -323,6 +362,7 @@ export function useDashboardData(): DashboardData {
     retry,
     firstName,
     todayAppointments,
+    upcomingAppointments,
     currentMonth,
     previousMonth,
     clientsThisMonth,
