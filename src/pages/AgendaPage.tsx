@@ -6,6 +6,9 @@ import {
   ChevronRight,
   Clock,
   Calendar,
+  X,
+  Pencil,
+  Trash2,
 } from 'lucide-react'
 import {
   useAgendaData,
@@ -14,6 +17,7 @@ import {
   fmtDateStr,
 } from '../hooks/useAgendaData'
 import type { AgendaAppointment, ViewMode } from '../hooks/useAgendaData'
+import { supabase } from '../lib/supabase'
 import NewAppointmentModalFull from '../components/NewAppointmentModalFull'
 
 const MONTHS_FR = [
@@ -35,22 +39,50 @@ const TYPE_LABELS: Record<string, string> = {
   retouche: 'Retouche',
 }
 
+const DURATION_OPTIONS = [
+  { value: '30', label: '30min' },
+  { value: '60', label: '1h' },
+  { value: '90', label: '1h30' },
+  { value: '120', label: '2h' },
+  { value: '150', label: '2h30' },
+  { value: '180', label: '3h' },
+  { value: '210', label: '3h30' },
+  { value: '240', label: '4h' },
+  { value: '270', label: '4h30' },
+  { value: '300', label: '5h' },
+  { value: '330', label: '5h30' },
+  { value: '360', label: '6h' },
+]
+
 function formatTime(time: string) {
   return time.slice(0, 5)
+}
+
+function getEndTime(time: string, durationMinutes: number): string {
+  const [h, m] = time.split(':').map(Number)
+  const totalMin = h * 60 + m + durationMinutes
+  const eh = Math.floor(totalMin / 60) % 24
+  const em = totalMin % 60
+  return `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}`
 }
 
 function formatDateLong(d: Date) {
   return d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 }
 
-// Hours for the week view grid
+const HOUR_HEIGHT = 60 // px per hour
 const HOURS = Array.from({ length: 12 }, (_, i) => i + 8) // 8:00 to 19:00
+const GRID_START_HOUR = 8
 
 export default function AgendaPage() {
   const data = useAgendaData()
   const navigate = useNavigate()
   const [showModal, setShowModal] = useState(false)
   const [modalDate, setModalDate] = useState<string | undefined>(undefined)
+  const [selectedAppt, setSelectedAppt] = useState<AgendaAppointment | null>(null)
+  const [editAppt, setEditAppt] = useState<AgendaAppointment | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const today = fmtDateStr(new Date())
 
@@ -64,6 +96,20 @@ export default function AgendaPage() {
   const handleNewRdv = (date?: string) => {
     setModalDate(date)
     setShowModal(true)
+  }
+
+  const handleClickAppt = (appt: AgendaAppointment) => {
+    setSelectedAppt(appt)
+    setConfirmDeleteId(null)
+  }
+
+  const handleDeleteAppt = async (id: string) => {
+    setDeleting(true)
+    await supabase.from('appointments').delete().eq('id', id)
+    setDeleting(false)
+    setSelectedAppt(null)
+    setConfirmDeleteId(null)
+    data.refresh()
   }
 
   return (
@@ -135,7 +181,7 @@ export default function AgendaPage() {
           currentDate={data.currentDate}
           today={today}
           getAppointmentsForDate={data.getAppointmentsForDate}
-          onClickAppt={(clientId) => navigate(`/clients/${clientId}`)}
+          onClickAppt={handleClickAppt}
         />
       ) : data.viewMode === 'month' ? (
         <MonthView
@@ -143,14 +189,15 @@ export default function AgendaPage() {
           today={today}
           getAppointmentsForDate={data.getAppointmentsForDate}
           onClickDate={(d) => handleNewRdv(d)}
-          onClickAppt={(clientId) => navigate(`/clients/${clientId}`)}
+          onClickAppt={handleClickAppt}
         />
       ) : (
         <WeekView
           currentDate={data.currentDate}
           today={today}
           getAppointmentsForDate={data.getAppointmentsForDate}
-          onClickAppt={(clientId) => navigate(`/clients/${clientId}`)}
+          onClickAppt={handleClickAppt}
+          onClickSlot={(dateStr) => handleNewRdv(dateStr)}
         />
       )}
 
@@ -166,14 +213,11 @@ export default function AgendaPage() {
 
       {/* Today + Upcoming */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {/* Today */}
         <div className="bg-white rounded-xl border border-border p-6">
           <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-sm font-semibold text-navy">
-                Aujourd'hui — {formatDateLong(new Date())}
-              </h3>
-            </div>
+            <h3 className="text-sm font-semibold text-navy">
+              Aujourd'hui — {formatDateLong(new Date())}
+            </h3>
             <span className="text-xs font-medium px-2.5 py-1 rounded-lg bg-accent-light text-accent">
               {data.todayAppointments.length} RDV
             </span>
@@ -183,13 +227,11 @@ export default function AgendaPage() {
           ) : (
             <div className="space-y-3">
               {data.todayAppointments.map(appt => (
-                <AppointmentCard key={appt.id} appt={appt} showDate={false} onClick={() => navigate(`/clients/${appt.client_id}`)} />
+                <AppointmentCard key={appt.id} appt={appt} showDate={false} onClick={() => handleClickAppt(appt)} />
               ))}
             </div>
           )}
         </div>
-
-        {/* Upcoming */}
         <div className="bg-white rounded-xl border border-border p-6">
           <h3 className="text-sm font-semibold text-navy mb-4">Prochains rendez-vous</h3>
           {data.upcomingAppointments.length === 0 ? (
@@ -197,20 +239,235 @@ export default function AgendaPage() {
           ) : (
             <div className="space-y-3">
               {data.upcomingAppointments.map(appt => (
-                <AppointmentCard key={appt.id} appt={appt} showDate onClick={() => navigate(`/clients/${appt.client_id}`)} />
+                <AppointmentCard key={appt.id} appt={appt} showDate onClick={() => handleClickAppt(appt)} />
               ))}
             </div>
           )}
         </div>
       </div>
 
-      {/* Modal */}
+      {/* New appointment modal */}
       <NewAppointmentModalFull
         open={showModal}
         onClose={() => setShowModal(false)}
         onCreated={data.refresh}
         defaultDate={modalDate}
       />
+
+      {/* Appointment detail popup */}
+      {selectedAppt && !editAppt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setSelectedAppt(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-md mx-4 p-6" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-navy">Détails du rendez-vous</h2>
+              <button onClick={() => setSelectedAppt(null)} className="p-1 rounded-lg hover:bg-gray-100 text-text-muted">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="space-y-3 mb-6">
+              <div className="flex justify-between items-center py-2 border-b border-border">
+                <span className="text-sm text-text-secondary">Client</span>
+                <button
+                  onClick={() => { setSelectedAppt(null); navigate(`/clients/${selectedAppt.client_id}`) }}
+                  className="text-sm font-medium text-accent hover:underline"
+                >
+                  {selectedAppt.client_first_name} {selectedAppt.client_last_name}
+                </button>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-border">
+                <span className="text-sm text-text-secondary">Date</span>
+                <span className="text-sm font-medium text-navy">
+                  {new Date(selectedAppt.date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                </span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-border">
+                <span className="text-sm text-text-secondary">Horaire</span>
+                <span className="text-sm font-medium text-navy">
+                  {formatTime(selectedAppt.time)} — {getEndTime(selectedAppt.time, selectedAppt.duration_minutes)}
+                </span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-border">
+                <span className="text-sm text-text-secondary">Durée</span>
+                <span className="text-sm font-medium text-navy">
+                  {DURATION_OPTIONS.find(d => d.value === String(selectedAppt.duration_minutes))?.label || `${selectedAppt.duration_minutes} min`}
+                </span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-border">
+                <span className="text-sm text-text-secondary">Type</span>
+                <span className="text-sm font-medium text-navy">{TYPE_LABELS[selectedAppt.type] || selectedAppt.type}</span>
+              </div>
+              {selectedAppt.description && (
+                <div className="py-2">
+                  <span className="text-sm text-text-secondary">Description</span>
+                  <p className="text-sm text-navy mt-1">{selectedAppt.description}</p>
+                </div>
+              )}
+            </div>
+            {confirmDeleteId === selectedAppt.id ? (
+              <div className="bg-red/5 border border-red/20 rounded-xl p-4 mb-3">
+                <p className="text-sm text-navy mb-3">Es-tu sûr de vouloir supprimer ce rendez-vous ?</p>
+                <div className="flex gap-2 justify-end">
+                  <button
+                    onClick={() => setConfirmDeleteId(null)}
+                    className="px-4 py-2 text-sm font-medium rounded-xl border border-border text-text-secondary hover:bg-gray-50 transition-colors"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    onClick={() => handleDeleteAppt(selectedAppt.id)}
+                    disabled={deleting}
+                    className="px-4 py-2 text-sm font-medium rounded-xl bg-red text-white hover:bg-red/90 transition-colors disabled:opacity-50"
+                  >
+                    {deleting ? 'Suppression...' : 'Supprimer'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex gap-3">
+                <button
+                  onClick={() => { setEditAppt(selectedAppt); setSelectedAppt(null) }}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl border border-border text-text-secondary hover:bg-gray-50 transition-colors"
+                >
+                  <Pencil size={16} />
+                  Modifier
+                </button>
+                <button
+                  onClick={() => setConfirmDeleteId(selectedAppt.id)}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl border border-red/30 text-red hover:bg-red/5 transition-colors"
+                >
+                  <Trash2 size={16} />
+                  Supprimer
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Edit appointment modal */}
+      {editAppt && (
+        <EditAppointmentModal
+          appt={editAppt}
+          onClose={() => setEditAppt(null)}
+          onUpdated={() => { setEditAppt(null); data.refresh() }}
+        />
+      )}
+    </div>
+  )
+}
+
+/* ========== Edit Appointment Modal ========== */
+function EditAppointmentModal({ appt, onClose, onUpdated }: { appt: AgendaAppointment; onClose: () => void; onUpdated: () => void }) {
+  const [saving, setSaving] = useState(false)
+  const [form, setForm] = useState({
+    date: appt.date,
+    time: appt.time,
+    duration_minutes: String(appt.duration_minutes),
+    type: appt.type as string,
+    description: appt.description || '',
+  })
+  const set = (key: string, value: string) => setForm(prev => ({ ...prev, [key]: value }))
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSaving(true)
+    await supabase.from('appointments').update({
+      date: form.date,
+      time: form.time,
+      duration_minutes: parseInt(form.duration_minutes) || 60,
+      type: form.type,
+      description: form.description.trim() || null,
+    }).eq('id', appt.id)
+    setSaving(false)
+    onUpdated()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="bg-white rounded-2xl w-full max-w-lg mx-4">
+        <div className="flex items-center justify-between p-6 border-b border-border">
+          <div>
+            <h2 className="text-lg font-bold text-navy">Modifier le rendez-vous</h2>
+            <p className="text-sm text-text-muted mt-0.5">{appt.client_first_name} {appt.client_last_name}</p>
+          </div>
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-gray-100 text-text-muted">
+            <X size={20} />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-navy mb-1">Date *</label>
+              <input
+                required
+                type="date"
+                value={form.date}
+                onChange={e => set('date', e.target.value)}
+                className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-navy mb-1">Heure *</label>
+              <input
+                required
+                type="time"
+                value={form.time}
+                onChange={e => set('time', e.target.value)}
+                className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-navy mb-1">Type</label>
+              <select
+                value={form.type}
+                onChange={e => set('type', e.target.value)}
+                className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent bg-white"
+              >
+                <option value="tattoo">Séance tattoo</option>
+                <option value="consultation">Consultation</option>
+                <option value="retouche">Retouche</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-navy mb-1">Durée</label>
+              <select
+                value={form.duration_minutes}
+                onChange={e => set('duration_minutes', e.target.value)}
+                className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent bg-white"
+              >
+                {DURATION_OPTIONS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-navy mb-1">Description</label>
+            <textarea
+              value={form.description}
+              onChange={e => set('description', e.target.value)}
+              rows={3}
+              className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent resize-none"
+            />
+          </div>
+          <div className="flex gap-3 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 px-4 py-2.5 text-sm font-medium rounded-xl border border-border text-text-secondary hover:bg-gray-50 transition-colors"
+            >
+              Annuler
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex-1 px-4 py-2.5 text-sm font-medium rounded-xl bg-accent text-white hover:bg-accent/90 transition-colors disabled:opacity-50"
+            >
+              {saving ? 'Enregistrement...' : 'Enregistrer'}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   )
 }
@@ -227,14 +484,13 @@ function MonthView({
   today: string
   getAppointmentsForDate: (d: string) => AgendaAppointment[]
   onClickDate: (d: string) => void
-  onClickAppt: (clientId: string) => void
+  onClickAppt: (appt: AgendaAppointment) => void
 }) {
   const weeks = getMonthGrid(currentDate)
   const currentMonth = currentDate.getMonth()
 
   return (
     <div className="bg-white rounded-xl border border-border overflow-hidden">
-      {/* Day headers */}
       <div className="grid grid-cols-7 border-b border-border">
         {DAYS_FR.map(day => (
           <div key={day} className="px-2 py-3 text-center text-xs font-medium text-text-muted">
@@ -242,7 +498,6 @@ function MonthView({
           </div>
         ))}
       </div>
-      {/* Weeks */}
       {weeks.map((week, wi) => (
         <div key={wi} className="grid grid-cols-7 border-b border-border last:border-b-0">
           {week.map((day, di) => {
@@ -280,7 +535,7 @@ function MonthView({
                         key={a.id}
                         className={`text-[10px] leading-tight px-1.5 py-0.5 rounded border-l-2 ${style.bg} ${style.border} truncate cursor-pointer hover:opacity-80`}
                         title={`${formatTime(a.time)} - ${a.client_first_name} ${a.client_last_name}`}
-                        onClick={(e) => { e.stopPropagation(); onClickAppt(a.client_id) }}
+                        onClick={(e) => { e.stopPropagation(); onClickAppt(a) }}
                       >
                         <span className={`font-medium ${style.text}`}>{formatTime(a.time)}</span>{' '}
                         <span className="text-text-secondary">{a.client_first_name}</span>
@@ -306,11 +561,13 @@ function WeekView({
   today,
   getAppointmentsForDate,
   onClickAppt,
+  onClickSlot,
 }: {
   currentDate: Date
   today: string
   getAppointmentsForDate: (d: string) => AgendaAppointment[]
-  onClickAppt: (clientId: string) => void
+  onClickAppt: (appt: AgendaAppointment) => void
+  onClickSlot: (dateStr: string) => void
 }) {
   const days = getWeekDays(currentDate)
 
@@ -318,7 +575,6 @@ function WeekView({
     <div className="bg-white rounded-xl border border-border overflow-hidden">
       <div className="overflow-x-auto">
         <div className="min-w-[800px]">
-          {/* Day headers */}
           <div className="grid grid-cols-[60px_repeat(7,1fr)] border-b border-border">
             <div className="p-2" />
             {days.map((day, i) => {
@@ -334,50 +590,65 @@ function WeekView({
               )
             })}
           </div>
-          {/* Hour rows */}
-          {HOURS.map(hour => (
-            <div key={hour} className="grid grid-cols-[60px_repeat(7,1fr)] border-b border-border last:border-b-0">
-              <div className="p-2 text-xs text-text-muted text-right pr-3 pt-1">
-                {hour.toString().padStart(2, '0')}:00
-              </div>
-              {days.map((day, di) => {
-                const dateStr = fmtDateStr(day)
-                const isToday = dateStr === today
-                const appts = getAppointmentsForDate(dateStr).filter(a => {
-                  const h = parseInt(a.time.split(':')[0])
-                  return h === hour
-                })
-
-                return (
-                  <div
-                    key={di}
-                    className={`min-h-[60px] p-1 border-l border-border relative ${isToday ? 'bg-accent-light/30' : ''}`}
-                  >
-                    {appts.map(a => {
-                      const style = TYPE_STYLES[a.type] || TYPE_STYLES.tattoo
-                      const durationRows = Math.max(1, Math.round(a.duration_minutes / 60))
-                      return (
-                        <div
-                          key={a.id}
-                          className={`text-xs px-2 py-1 rounded-lg border-l-2 mb-0.5 cursor-pointer hover:opacity-80 ${style.bg} ${style.border}`}
-                          style={{ minHeight: `${durationRows * 50}px` }}
-                          onClick={() => onClickAppt(a.client_id)}
-                        >
-                          <p className={`font-medium ${style.text}`}>{formatTime(a.time)}</p>
-                          <p className="text-text-secondary truncate">
-                            {a.client_first_name} {a.client_last_name}
-                          </p>
-                          {a.description && (
-                            <p className="text-text-muted truncate">{a.description}</p>
-                          )}
-                        </div>
-                      )
-                    })}
+          {/* Time grid body */}
+          <div className="grid grid-cols-[60px_repeat(7,1fr)]">
+            {/* Hour labels column */}
+            <div>
+              {HOURS.map(hour => (
+                <div key={hour} className="border-b border-border last:border-b-0" style={{ height: HOUR_HEIGHT }}>
+                  <div className="text-xs text-text-muted text-right pr-3 pt-1">
+                    {hour.toString().padStart(2, '0')}:00
                   </div>
-                )
-              })}
+                </div>
+              ))}
             </div>
-          ))}
+            {/* Day columns */}
+            {days.map((day, di) => {
+              const dateStr = fmtDateStr(day)
+              const isToday = dateStr === today
+              const dayAppts = getAppointmentsForDate(dateStr)
+
+              return (
+                <div
+                  key={di}
+                  className={`border-l border-border relative ${isToday ? 'bg-accent-light/30' : ''}`}
+                  style={{ height: HOURS.length * HOUR_HEIGHT }}
+                  onClick={() => onClickSlot(dateStr)}
+                >
+                  {/* Hour grid lines */}
+                  {HOURS.map(hour => (
+                    <div
+                      key={hour}
+                      className="border-b border-border last:border-b-0 absolute w-full"
+                      style={{ top: (hour - GRID_START_HOUR) * HOUR_HEIGHT, height: HOUR_HEIGHT }}
+                    />
+                  ))}
+                  {/* Appointment blocks */}
+                  {dayAppts.map(a => {
+                    const style = TYPE_STYLES[a.type] || TYPE_STYLES.tattoo
+                    const [h, m] = a.time.split(':').map(Number)
+                    const topOffset = (h - GRID_START_HOUR) * HOUR_HEIGHT + (m / 60) * HOUR_HEIGHT
+                    const blockHeight = Math.max(24, (a.duration_minutes / 60) * HOUR_HEIGHT - 2)
+                    const endTime = getEndTime(a.time, a.duration_minutes)
+
+                    return (
+                      <div
+                        key={a.id}
+                        className={`absolute left-0.5 right-0.5 text-xs px-2 py-1 rounded-lg border-l-2 cursor-pointer hover:opacity-80 z-10 overflow-hidden ${style.bg} ${style.border}`}
+                        style={{ top: topOffset, height: blockHeight }}
+                        onClick={(e) => { e.stopPropagation(); onClickAppt(a) }}
+                      >
+                        <p className={`font-medium ${style.text} leading-tight`}>{formatTime(a.time)} - {endTime}</p>
+                        <p className="text-text-secondary truncate leading-tight">
+                          {a.client_first_name} {a.client_last_name}
+                        </p>
+                      </div>
+                    )
+                  })}
+                </div>
+              )
+            })}
+          </div>
         </div>
       </div>
     </div>
@@ -394,7 +665,7 @@ function DayView({
   currentDate: Date
   today: string
   getAppointmentsForDate: (d: string) => AgendaAppointment[]
-  onClickAppt: (clientId: string) => void
+  onClickAppt: (appt: AgendaAppointment) => void
 }) {
   const dateStr = fmtDateStr(currentDate)
   const isToday = dateStr === today
@@ -408,42 +679,46 @@ function DayView({
           {isToday && <span className="ml-2 text-xs font-normal text-accent/70">— Aujourd'hui</span>}
         </p>
       </div>
-      {HOURS.map(hour => {
-        const hourAppts = appts.filter(a => parseInt(a.time.split(':')[0]) === hour)
-        return (
-          <div key={hour} className="flex border-b border-border last:border-b-0">
-            <div className="w-16 shrink-0 p-3 text-xs text-text-muted text-right pr-4 pt-3">
+      <div className="relative">
+        {/* Hour rows */}
+        {HOURS.map(hour => (
+          <div key={hour} className="flex border-b border-border last:border-b-0" style={{ height: HOUR_HEIGHT }}>
+            <div className="w-16 shrink-0 text-xs text-text-muted text-right pr-4 pt-1">
               {hour.toString().padStart(2, '0')}:00
             </div>
-            <div className={`flex-1 min-h-[64px] p-1.5 border-l border-border`}>
-              {hourAppts.map(a => {
-                const style = TYPE_STYLES[a.type] || TYPE_STYLES.tattoo
-                const durationRows = Math.max(1, Math.round(a.duration_minutes / 60))
-                return (
-                  <div
-                    key={a.id}
-                    className={`text-sm px-3 py-2 rounded-lg border-l-2 mb-1 cursor-pointer hover:opacity-80 ${style.bg} ${style.border}`}
-                    style={{ minHeight: `${durationRows * 56}px` }}
-                    onClick={() => onClickAppt(a.client_id)}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className={`font-semibold ${style.text}`}>{formatTime(a.time)}</span>
-                      <span className="text-navy font-medium">{a.client_first_name} {a.client_last_name}</span>
-                    </div>
-                    <div className="flex items-center gap-3 mt-0.5 text-xs text-text-muted">
-                      <span>{TYPE_LABELS[a.type] || a.type}</span>
-                      <span>{a.duration_minutes} min</span>
-                    </div>
-                    {a.description && (
-                      <p className="text-xs text-text-muted mt-0.5 truncate">{a.description}</p>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
+            <div className="flex-1 border-l border-border" />
           </div>
-        )
-      })}
+        ))}
+        {/* Positioned appointment blocks */}
+        {appts.map(a => {
+          const style = TYPE_STYLES[a.type] || TYPE_STYLES.tattoo
+          const [h, m] = a.time.split(':').map(Number)
+          const topOffset = (h - GRID_START_HOUR) * HOUR_HEIGHT + (m / 60) * HOUR_HEIGHT
+          const blockHeight = Math.max(32, (a.duration_minutes / 60) * HOUR_HEIGHT - 4)
+          const endTime = getEndTime(a.time, a.duration_minutes)
+
+          return (
+            <div
+              key={a.id}
+              className={`absolute left-[68px] right-2 text-sm px-3 py-2 rounded-lg border-l-2 cursor-pointer hover:opacity-80 z-10 overflow-hidden ${style.bg} ${style.border}`}
+              style={{ top: topOffset, height: blockHeight }}
+              onClick={() => onClickAppt(a)}
+            >
+              <div className="flex items-center gap-2">
+                <span className={`font-semibold ${style.text}`}>{formatTime(a.time)} - {endTime}</span>
+                <span className="text-navy font-medium">{a.client_first_name} {a.client_last_name}</span>
+              </div>
+              <div className="flex items-center gap-3 mt-0.5 text-xs text-text-muted">
+                <span>{TYPE_LABELS[a.type] || a.type}</span>
+                <span>{DURATION_OPTIONS.find(d => d.value === String(a.duration_minutes))?.label || `${a.duration_minutes} min`}</span>
+              </div>
+              {a.description && (
+                <p className="text-xs text-text-muted mt-0.5 truncate">{a.description}</p>
+              )}
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
@@ -451,6 +726,7 @@ function DayView({
 /* ========== Appointment Card ========== */
 function AppointmentCard({ appt, showDate, onClick }: { appt: AgendaAppointment; showDate: boolean; onClick?: () => void }) {
   const style = TYPE_STYLES[appt.type] || TYPE_STYLES.tattoo
+  const endTime = getEndTime(appt.time, appt.duration_minutes)
 
   return (
     <div className={`flex items-start gap-3 p-3 rounded-xl cursor-pointer hover:opacity-80 transition-opacity ${style.bg}`} onClick={onClick}>
@@ -470,11 +746,11 @@ function AppointmentCard({ appt, showDate, onClick }: { appt: AgendaAppointment;
         <div className="flex items-center gap-3 mt-1.5">
           <span className={`text-xs font-medium ${style.text} flex items-center gap-1`}>
             <Clock size={12} />
-            {formatTime(appt.time)}
+            {formatTime(appt.time)} - {endTime}
           </span>
           <span className="text-xs text-text-muted flex items-center gap-1">
             <Calendar size={12} />
-            {appt.duration_minutes} min
+            {DURATION_OPTIONS.find(d => d.value === String(appt.duration_minutes))?.label || `${appt.duration_minutes} min`}
           </span>
         </div>
       </div>
