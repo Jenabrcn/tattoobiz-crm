@@ -1,4 +1,4 @@
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useEffect, useState, useCallback, useRef } from 'react'
 import {
   ChevronRight,
@@ -85,6 +85,9 @@ export default function ClientDetailPage() {
   const [notes, setNotes] = useState('')
   const [showEdit, setShowEdit] = useState(false)
   const [showNewRdv, setShowNewRdv] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const navigate = useNavigate()
   const [uploadingType, setUploadingType] = useState<PhotoType | null>(null)
   const notesTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -288,22 +291,27 @@ export default function ClientDetailPage() {
             <h1 className="text-2xl font-bold text-navy font-display">{fullName}</h1>
             <div className="flex items-center gap-4 mt-2 flex-wrap text-sm text-text-secondary">
               {client.email && (
-                <span className="flex items-center gap-1.5">
+                <a href={`mailto:${client.email}`} className="flex items-center gap-1.5 hover:text-accent transition-colors">
                   <Mail size={14} className="text-text-muted" />
                   {client.email}
-                </span>
+                </a>
               )}
               {client.phone && (
-                <span className="flex items-center gap-1.5">
+                <a href={`tel:${client.phone}`} className="flex items-center gap-1.5 hover:text-accent transition-colors">
                   <Phone size={14} className="text-text-muted" />
                   {client.phone}
-                </span>
+                </a>
               )}
               {client.instagram && (
-                <span className="flex items-center gap-1.5">
+                <a
+                  href={`https://instagram.com/${client.instagram.replace(/^@/, '')}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 hover:text-accent transition-colors"
+                >
                   <Instagram size={14} className="text-text-muted" />
                   {client.instagram}
-                </span>
+                </a>
               )}
               {client.tag && (
                 <span className={`text-xs font-medium px-2.5 py-1 rounded-lg ${
@@ -507,6 +515,47 @@ export default function ClientDetailPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+      </div>
+
+      {/* Delete client */}
+      <div className="flex justify-end">
+        {!confirmDelete ? (
+          <button
+            onClick={() => setConfirmDelete(true)}
+            className="text-sm text-red/70 hover:text-red transition-colors"
+          >
+            Supprimer ce client
+          </button>
+        ) : (
+          <div className="w-full bg-white rounded-xl border border-red/20 p-5">
+            <p className="text-sm text-navy mb-4">
+              Es-tu sûr de vouloir supprimer ce client ? Cette action est irréversible. Toutes ses données (rendez-vous, finances, photos) seront supprimées.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setConfirmDelete(false)}
+                className="px-4 py-2 text-sm font-medium rounded-xl border border-border text-text-secondary hover:bg-gray-50 transition-colors"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={async () => {
+                  if (!id) return
+                  setDeleting(true)
+                  await supabase.from('photos').delete().eq('client_id', id)
+                  await supabase.from('finances').delete().eq('client_id', id)
+                  await supabase.from('appointments').delete().eq('client_id', id)
+                  await supabase.from('clients').delete().eq('id', id)
+                  navigate('/clients')
+                }}
+                disabled={deleting}
+                className="px-4 py-2 text-sm font-medium rounded-xl bg-red text-white hover:bg-red/90 transition-colors disabled:opacity-50"
+              >
+                {deleting ? 'Suppression...' : 'Supprimer'}
+              </button>
+            </div>
           </div>
         )}
       </div>
