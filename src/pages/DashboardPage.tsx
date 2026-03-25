@@ -203,9 +203,9 @@ export default function DashboardPage() {
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setDropdownOpen(!dropdownOpen)}
-              className="flex items-center gap-2 text-sm font-medium text-text-secondary bg-white border border-border px-4 py-2 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer"
+              className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-xl bg-accent text-white hover:bg-accent/90 transition-colors cursor-pointer"
             >
-              <Calendar size={16} className="text-accent" />
+              <Calendar size={16} />
               {periodLabel}
             </button>
             {dropdownOpen && (
@@ -313,7 +313,6 @@ export default function DashboardPage() {
             <p className="text-sm text-text-muted mt-1">Clients</p>
           </div>
         </div>
-        <p className="text-xs text-text-muted text-center">Données calculées sur la période sélectionnée</p>
       </div>
 
       {/* ===== SECTION 3: Mes prochains rendez-vous ===== */}
