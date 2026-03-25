@@ -223,7 +223,7 @@ export function useDashboardData(): DashboardData {
           .gte('date', today)
           .order('date')
           .order('time')
-          .limit(10),
+          .limit(5),
       ]))
     } catch (err) {
       if (fetchId !== fetchIdRef.current) return

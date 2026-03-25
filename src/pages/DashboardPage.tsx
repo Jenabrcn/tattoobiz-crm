@@ -327,6 +327,7 @@ export default function DashboardPage() {
             <p className="text-sm text-text-muted mt-1">Clients</p>
           </div>
         </div>
+        <p className="text-xs text-text-muted text-center">Données calculées sur la période sélectionnée</p>
 
         {/* Pie chart */}
         <div className="bg-white rounded-xl border border-border p-8">
@@ -433,17 +434,15 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {data.upcomingAppointments.length >= 10 && (
-          <div className="text-center">
-            <Link
-              to="/agenda"
-              className="inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:underline"
-            >
-              Voir tous mes rendez-vous
-              <ArrowRight size={16} />
-            </Link>
-          </div>
-        )}
+        <div className="text-center">
+          <Link
+            to="/agenda"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:underline"
+          >
+            Voir tous mes rendez-vous
+            <ArrowRight size={16} />
+          </Link>
+        </div>
       </div>
 
       {/* ===== Appointment detail popup ===== */}
