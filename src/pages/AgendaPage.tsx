@@ -19,6 +19,7 @@ import {
 import type { AgendaAppointment, ViewMode } from '../hooks/useAgendaData'
 import { supabase } from '../lib/supabase'
 import NewAppointmentModalFull from '../components/NewAppointmentModalFull'
+import { useConflictDetection, ConflictBanner } from '../hooks/useConflictDetection'
 
 const MONTHS_FR = [
   'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
@@ -367,6 +368,7 @@ function EditAppointmentModal({ appt, onClose, onUpdated }: { appt: AgendaAppoin
     description: appt.description || '',
   })
   const set = (key: string, value: string) => setForm(prev => ({ ...prev, [key]: value }))
+  const conflict = useConflictDetection(form.date, form.time, parseInt(form.duration_minutes) || 60, appt.id)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -441,6 +443,7 @@ function EditAppointmentModal({ appt, onClose, onUpdated }: { appt: AgendaAppoin
               </select>
             </div>
           </div>
+          {conflict && <ConflictBanner conflict={conflict} />}
           <div>
             <label className="block text-sm font-medium text-navy mb-1">Description</label>
             <textarea
