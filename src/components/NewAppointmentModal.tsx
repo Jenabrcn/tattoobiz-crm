@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+import { useConflictDetection, ConflictBanner } from '../hooks/useConflictDetection'
 
 interface Props {
   open: boolean
@@ -42,6 +43,12 @@ export default function NewAppointmentModal({ open, clientId, clientName, onClos
     type: 'tattoo' as 'tattoo' | 'consultation' | 'retouche',
     description: '',
   })
+
+  const conflict = useConflictDetection(
+    open ? form.date : '',
+    form.time,
+    parseInt(form.duration_minutes) || 60,
+  )
 
   if (!open) return null
 
@@ -127,6 +134,7 @@ export default function NewAppointmentModal({ open, clientId, clientName, onClos
               </select>
             </div>
           </div>
+          {conflict && <ConflictBanner conflict={conflict} />}
           <div>
             <label className="block text-sm font-medium text-navy mb-1">Description</label>
             <textarea
