@@ -119,7 +119,9 @@ export default function AgendaPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-navy">Agenda</h1>
-          <p className="text-text-secondary mt-1">{data.monthCount} rendez-vous ce mois</p>
+          <p className="text-text-secondary mt-1">
+            {data.viewCount} rendez-vous {data.viewMode === 'day' ? "aujourd'hui" : data.viewMode === 'week' ? 'cette semaine' : 'ce mois'}
+          </p>
         </div>
         <button
           onClick={() => handleNewRdv()}
