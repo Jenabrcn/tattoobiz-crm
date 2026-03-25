@@ -14,7 +14,7 @@ export interface AgendaAppointment {
   client_last_name: string
 }
 
-export type ViewMode = 'month' | 'week'
+export type ViewMode = 'month' | 'week' | 'day'
 
 function fmtDate(d: Date) {
   const y = d.getFullYear()
@@ -62,13 +62,15 @@ export function useAgendaData() {
       if (viewMode === 'month') {
         const ms = startOfMonth(currentDate)
         const me = endOfMonth(currentDate)
-        // Extend to cover calendar grid (prev/next month days)
         const dayOfWeek = ms.getDay()
         const offset = dayOfWeek === 0 ? 6 : dayOfWeek - 1
         rangeStart = new Date(ms.getFullYear(), ms.getMonth(), ms.getDate() - offset)
         const endDay = me.getDay()
         const endOffset = endDay === 0 ? 0 : 7 - endDay
         rangeEnd = new Date(me.getFullYear(), me.getMonth(), me.getDate() + endOffset)
+      } else if (viewMode === 'day') {
+        rangeStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate())
+        rangeEnd = rangeStart
       } else {
         rangeStart = startOfWeek(currentDate)
         rangeEnd = endOfWeek(currentDate)
@@ -133,11 +135,16 @@ export function useAgendaData() {
     fetchAppointments()
   }, [fetchAppointments])
 
-  const goToday = () => setCurrentDate(new Date())
+  const goToday = () => {
+    setCurrentDate(new Date())
+    setViewMode('day')
+  }
 
   const goPrev = () => {
     if (viewMode === 'month') {
       setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))
+    } else if (viewMode === 'day') {
+      setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate() - 1))
     } else {
       const s = startOfWeek(currentDate)
       setCurrentDate(new Date(s.getFullYear(), s.getMonth(), s.getDate() - 7))
@@ -147,6 +154,8 @@ export function useAgendaData() {
   const goNext = () => {
     if (viewMode === 'month') {
       setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))
+    } else if (viewMode === 'day') {
+      setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate() + 1))
     } else {
       const s = startOfWeek(currentDate)
       setCurrentDate(new Date(s.getFullYear(), s.getMonth(), s.getDate() + 7))
