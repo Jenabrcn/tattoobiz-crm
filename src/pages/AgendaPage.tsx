@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Plus,
   ChevronLeft,
@@ -47,6 +48,7 @@ const HOURS = Array.from({ length: 12 }, (_, i) => i + 8) // 8:00 to 19:00
 
 export default function AgendaPage() {
   const data = useAgendaData()
+  const navigate = useNavigate()
   const [showModal, setShowModal] = useState(false)
   const [modalDate, setModalDate] = useState<string | undefined>(undefined)
 
@@ -128,12 +130,14 @@ export default function AgendaPage() {
           today={today}
           getAppointmentsForDate={data.getAppointmentsForDate}
           onClickDate={(d) => handleNewRdv(d)}
+          onClickAppt={(clientId) => navigate(`/clients/${clientId}`)}
         />
       ) : (
         <WeekView
           currentDate={data.currentDate}
           today={today}
           getAppointmentsForDate={data.getAppointmentsForDate}
+          onClickAppt={(clientId) => navigate(`/clients/${clientId}`)}
         />
       )}
 
@@ -166,7 +170,7 @@ export default function AgendaPage() {
           ) : (
             <div className="space-y-3">
               {data.todayAppointments.map(appt => (
-                <AppointmentCard key={appt.id} appt={appt} showDate={false} />
+                <AppointmentCard key={appt.id} appt={appt} showDate={false} onClick={() => navigate(`/clients/${appt.client_id}`)} />
               ))}
             </div>
           )}
@@ -180,7 +184,7 @@ export default function AgendaPage() {
           ) : (
             <div className="space-y-3">
               {data.upcomingAppointments.map(appt => (
-                <AppointmentCard key={appt.id} appt={appt} showDate />
+                <AppointmentCard key={appt.id} appt={appt} showDate onClick={() => navigate(`/clients/${appt.client_id}`)} />
               ))}
             </div>
           )}
@@ -204,11 +208,13 @@ function MonthView({
   today,
   getAppointmentsForDate,
   onClickDate,
+  onClickAppt,
 }: {
   currentDate: Date
   today: string
   getAppointmentsForDate: (d: string) => AgendaAppointment[]
   onClickDate: (d: string) => void
+  onClickAppt: (clientId: string) => void
 }) {
   const weeks = getMonthGrid(currentDate)
   const currentMonth = currentDate.getMonth()
@@ -259,8 +265,9 @@ function MonthView({
                     return (
                       <div
                         key={a.id}
-                        className={`text-[10px] leading-tight px-1.5 py-0.5 rounded border-l-2 ${style.bg} ${style.border} truncate`}
+                        className={`text-[10px] leading-tight px-1.5 py-0.5 rounded border-l-2 ${style.bg} ${style.border} truncate cursor-pointer hover:opacity-80`}
                         title={`${formatTime(a.time)} - ${a.client_first_name} ${a.client_last_name}`}
+                        onClick={(e) => { e.stopPropagation(); onClickAppt(a.client_id) }}
                       >
                         <span className={`font-medium ${style.text}`}>{formatTime(a.time)}</span>{' '}
                         <span className="text-text-secondary">{a.client_first_name}</span>
@@ -285,10 +292,12 @@ function WeekView({
   currentDate,
   today,
   getAppointmentsForDate,
+  onClickAppt,
 }: {
   currentDate: Date
   today: string
   getAppointmentsForDate: (d: string) => AgendaAppointment[]
+  onClickAppt: (clientId: string) => void
 }) {
   const days = getWeekDays(currentDate)
 
@@ -337,8 +346,9 @@ function WeekView({
                       return (
                         <div
                           key={a.id}
-                          className={`text-xs px-2 py-1 rounded-lg border-l-2 mb-0.5 ${style.bg} ${style.border}`}
+                          className={`text-xs px-2 py-1 rounded-lg border-l-2 mb-0.5 cursor-pointer hover:opacity-80 ${style.bg} ${style.border}`}
                           style={{ minHeight: `${durationRows * 50}px` }}
+                          onClick={() => onClickAppt(a.client_id)}
                         >
                           <p className={`font-medium ${style.text}`}>{formatTime(a.time)}</p>
                           <p className="text-text-secondary truncate">
@@ -362,11 +372,11 @@ function WeekView({
 }
 
 /* ========== Appointment Card ========== */
-function AppointmentCard({ appt, showDate }: { appt: AgendaAppointment; showDate: boolean }) {
+function AppointmentCard({ appt, showDate, onClick }: { appt: AgendaAppointment; showDate: boolean; onClick?: () => void }) {
   const style = TYPE_STYLES[appt.type] || TYPE_STYLES.tattoo
 
   return (
-    <div className={`flex items-start gap-3 p-3 rounded-xl ${style.bg}`}>
+    <div className={`flex items-start gap-3 p-3 rounded-xl cursor-pointer hover:opacity-80 transition-opacity ${style.bg}`} onClick={onClick}>
       <div className={`w-1 self-stretch rounded-full ${style.dot}`} />
       <div className="flex-1 min-w-0">
         {showDate && (

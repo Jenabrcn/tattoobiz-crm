@@ -17,7 +17,10 @@ export interface AgendaAppointment {
 export type ViewMode = 'month' | 'week'
 
 function fmtDate(d: Date) {
-  return d.toISOString().split('T')[0]
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
 }
 
 function startOfMonth(d: Date) {
@@ -215,5 +218,8 @@ export function getWeekDays(date: Date): Date[] {
 }
 
 export function fmtDateStr(d: Date) {
-  return d.toISOString().split('T')[0]
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
 }
