@@ -375,7 +375,7 @@ function EditAppointmentModal({ appt, onClose, onUpdated }: { appt: AgendaAppoin
       date: form.date,
       time: form.time,
       duration_minutes: parseInt(form.duration_minutes) || 60,
-      type: form.type,
+      type: form.type as 'tattoo' | 'consultation' | 'retouche',
       description: form.description.trim() || null,
     }).eq('id', appt.id)
     setSaving(false)
