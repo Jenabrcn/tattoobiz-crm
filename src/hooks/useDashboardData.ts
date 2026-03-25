@@ -5,10 +5,13 @@ import { useAuth } from '../contexts/AuthContext'
 interface TodayAppointment {
   id: string
   time: string
+  duration_minutes: number
   description: string | null
   type: string
+  client_id: string
   client_first_name: string
   client_last_name: string
+  date: string
 }
 
 interface MonthlyFinance {
@@ -191,7 +194,7 @@ export function useDashboardData(): DashboardData {
           .order('created_at', { ascending: false }),
         supabase
           .from('appointments')
-          .select('id, client_id, date, time, description, type')
+          .select('id, client_id, date, time, duration_minutes, description, type')
           .eq('date', today)
           .order('time'),
         supabase
@@ -242,16 +245,19 @@ export function useDashboardData(): DashboardData {
       : []
 
     // --- Today's appointments ---
-    const todayAppts = (appointmentsResult.data || []) as { id: string; client_id: string; date: string; time: string; description: string | null; type: string }[]
+    const todayAppts = (appointmentsResult.data || []) as { id: string; client_id: string; date: string; time: string; duration_minutes: number; description: string | null; type: string }[]
     const todayEnriched = todayAppts.map(a => {
       const c = clientMap.get(a.client_id)
       return {
         id: a.id,
         time: a.time,
+        duration_minutes: a.duration_minutes,
         description: a.description,
         type: a.type,
+        client_id: a.client_id,
         client_first_name: c?.first_name || '',
         client_last_name: c?.last_name || '',
+        date: a.date,
       }
     })
 

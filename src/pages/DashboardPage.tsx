@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   TrendingUp,
   TrendingDown,
@@ -7,6 +8,9 @@ import {
   Users,
   Bell,
   Calendar,
+  X,
+  Pencil,
+  Trash2,
 } from 'lucide-react'
 import {
   PieChart,
@@ -14,6 +18,7 @@ import {
   Cell,
   ResponsiveContainer,
 } from 'recharts'
+import { supabase } from '../lib/supabase'
 import { useDashboardData, getEvolution } from '../hooks/useDashboardData'
 import type { PeriodPreset, DateRange } from '../hooks/useDashboardData'
 
@@ -34,6 +39,26 @@ function EvoBadge({ value }: { value: number }) {
 
 function formatTime(time: string) {
   return time.slice(0, 5)
+}
+
+function getEndTime(time: string, durationMinutes: number): string {
+  const [h, m] = time.split(':').map(Number)
+  const totalMin = h * 60 + m + durationMinutes
+  const eh = Math.floor(totalMin / 60) % 24
+  const em = totalMin % 60
+  return `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}`
+}
+
+const TYPE_LABELS: Record<string, string> = {
+  tattoo: 'Séance tattoo',
+  consultation: 'Consultation',
+  retouche: 'Retouche',
+}
+
+const DURATION_LABELS: Record<string, string> = {
+  '30': '30min', '60': '1h', '90': '1h30', '120': '2h', '150': '2h30',
+  '180': '3h', '210': '3h30', '240': '4h', '270': '4h30', '300': '5h',
+  '330': '5h30', '360': '6h',
 }
 
 function getPeriodLabel(dateRange: DateRange): string {
@@ -57,12 +82,28 @@ const PRESETS: { value: PeriodPreset; label: string }[] = [
   { value: 'all_time', label: 'Depuis le début' },
 ]
 
+interface SelectedAppt {
+  id: string
+  time: string
+  duration_minutes: number
+  description: string | null
+  type: string
+  client_id: string
+  client_first_name: string
+  client_last_name: string
+  date: string
+}
+
 export default function DashboardPage() {
   const data = useDashboardData()
+  const navigate = useNavigate()
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const [selectedAppt, setSelectedAppt] = useState<SelectedAppt | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     if (!dropdownOpen) return
@@ -133,9 +174,14 @@ export default function DashboardPage() {
     { name: 'Dépenses', value: data.currentMonth.expenses, color: '#dc2626' },
   ]
 
-  const todayAlertText = data.todayAppointments.length > 0
-    ? data.todayAppointments.map(a => `${a.client_first_name} à ${formatTime(a.time)}`).join(', ')
-    : null
+  const handleDeleteAppt = async (id: string) => {
+    setDeleting(true)
+    await supabase.from('appointments').delete().eq('id', id)
+    setDeleting(false)
+    setSelectedAppt(null)
+    setConfirmDeleteId(null)
+    data.retry()
+  }
 
   return (
     <div className="space-y-8">
@@ -217,7 +263,19 @@ export default function DashboardPage() {
           <Bell size={18} className="text-accent shrink-0" />
           <p className="text-sm text-navy">
             <span className="font-semibold">Tu as {data.todayAppointments.length} rendez-vous aujourd'hui</span>
-            {' — '}{todayAlertText}
+            {' — '}
+            {data.todayAppointments.map((a, i) => (
+              <span key={a.id}>
+                {i > 0 && ', '}
+                <button
+                  onClick={() => { setSelectedAppt(a); setConfirmDeleteId(null) }}
+                  className="font-medium text-accent hover:underline"
+                >
+                  {a.client_first_name}
+                </button>
+                {' à '}{formatTime(a.time)}
+              </span>
+            ))}
           </p>
         </div>
       )}
@@ -316,6 +374,96 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Appointment detail popup */}
+      {selectedAppt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setSelectedAppt(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-md mx-4 p-6" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-navy">Détails du rendez-vous</h2>
+              <button onClick={() => setSelectedAppt(null)} className="p-1 rounded-lg hover:bg-gray-100 text-text-muted">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="space-y-3 mb-6">
+              <div className="flex justify-between items-center py-2 border-b border-border">
+                <span className="text-sm text-text-secondary">Client</span>
+                <button
+                  onClick={() => { setSelectedAppt(null); navigate(`/clients/${selectedAppt.client_id}`) }}
+                  className="text-sm font-medium text-accent hover:underline"
+                >
+                  {selectedAppt.client_first_name} {selectedAppt.client_last_name}
+                </button>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-border">
+                <span className="text-sm text-text-secondary">Date</span>
+                <span className="text-sm font-medium text-navy">
+                  {new Date(selectedAppt.date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                </span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-border">
+                <span className="text-sm text-text-secondary">Horaire</span>
+                <span className="text-sm font-medium text-navy">
+                  {formatTime(selectedAppt.time)} — {getEndTime(selectedAppt.time, selectedAppt.duration_minutes)}
+                </span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-border">
+                <span className="text-sm text-text-secondary">Durée</span>
+                <span className="text-sm font-medium text-navy">
+                  {DURATION_LABELS[String(selectedAppt.duration_minutes)] || `${selectedAppt.duration_minutes} min`}
+                </span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-border">
+                <span className="text-sm text-text-secondary">Type</span>
+                <span className="text-sm font-medium text-navy">{TYPE_LABELS[selectedAppt.type] || selectedAppt.type}</span>
+              </div>
+              {selectedAppt.description && (
+                <div className="py-2">
+                  <span className="text-sm text-text-secondary">Description</span>
+                  <p className="text-sm text-navy mt-1">{selectedAppt.description}</p>
+                </div>
+              )}
+            </div>
+            {confirmDeleteId === selectedAppt.id ? (
+              <div className="bg-red/5 border border-red/20 rounded-xl p-4">
+                <p className="text-sm text-navy mb-3">Es-tu sûr de vouloir supprimer ce rendez-vous ?</p>
+                <div className="flex gap-2 justify-end">
+                  <button
+                    onClick={() => setConfirmDeleteId(null)}
+                    className="px-4 py-2 text-sm font-medium rounded-xl border border-border text-text-secondary hover:bg-gray-50 transition-colors"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    onClick={() => handleDeleteAppt(selectedAppt.id)}
+                    disabled={deleting}
+                    className="px-4 py-2 text-sm font-medium rounded-xl bg-red text-white hover:bg-red/90 transition-colors disabled:opacity-50"
+                  >
+                    {deleting ? 'Suppression...' : 'Supprimer'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex gap-3">
+                <button
+                  onClick={() => { setSelectedAppt(null); navigate(`/clients/${selectedAppt.client_id}`) }}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl border border-border text-text-secondary hover:bg-gray-50 transition-colors"
+                >
+                  <Pencil size={16} />
+                  Voir le client
+                </button>
+                <button
+                  onClick={() => setConfirmDeleteId(selectedAppt.id)}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl border border-red/30 text-red hover:bg-red/5 transition-colors"
+                >
+                  <Trash2 size={16} />
+                  Supprimer
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
