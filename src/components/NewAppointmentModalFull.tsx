@@ -22,6 +22,21 @@ const TYPE_OPTIONS = [
   { value: 'retouche', label: 'Retouche' },
 ]
 
+const DURATION_OPTIONS = [
+  { value: '30', label: '30min' },
+  { value: '60', label: '1h' },
+  { value: '90', label: '1h30' },
+  { value: '120', label: '2h' },
+  { value: '150', label: '2h30' },
+  { value: '180', label: '3h' },
+  { value: '210', label: '3h30' },
+  { value: '240', label: '4h' },
+  { value: '270', label: '4h30' },
+  { value: '300', label: '5h' },
+  { value: '330', label: '5h30' },
+  { value: '360', label: '6h' },
+]
+
 export default function NewAppointmentModalFull({ open, onClose, onCreated, defaultDate }: Props) {
   const { user } = useAuth()
   const [saving, setSaving] = useState(false)
@@ -177,15 +192,14 @@ export default function NewAppointmentModalFull({ open, onClose, onCreated, defa
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-navy mb-1">Durée (min)</label>
-              <input
-                type="number"
-                min="15"
-                step="15"
+              <label className="block text-sm font-medium text-navy mb-1">Durée</label>
+              <select
                 value={form.duration_minutes}
                 onChange={e => set('duration_minutes', e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
-              />
+                className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent bg-white"
+              >
+                {DURATION_OPTIONS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
+              </select>
             </div>
           </div>
           <div>

@@ -53,7 +53,13 @@ export default function AgendaPage() {
   const [modalDate, setModalDate] = useState<string | undefined>(undefined)
 
   const today = fmtDateStr(new Date())
-  const monthLabel = `${MONTHS_FR[data.currentDate.getMonth()]} ${data.currentDate.getFullYear()}`
+
+  let headerLabel: string
+  if (data.viewMode === 'day') {
+    headerLabel = data.currentDate.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+  } else {
+    headerLabel = `${MONTHS_FR[data.currentDate.getMonth()]} ${data.currentDate.getFullYear()}`
+  }
 
   const handleNewRdv = (date?: string) => {
     setModalDate(date)
@@ -87,7 +93,7 @@ export default function AgendaPage() {
             >
               <ChevronLeft size={20} />
             </button>
-            <h2 className="text-lg font-semibold text-navy min-w-[200px] text-center">{monthLabel}</h2>
+            <h2 className="text-lg font-semibold text-navy min-w-[200px] text-center">{headerLabel}</h2>
             <button
               onClick={data.goNext}
               className="p-2 rounded-lg hover:bg-gray-100 text-text-secondary transition-colors"
@@ -124,6 +130,13 @@ export default function AgendaPage() {
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent" />
         </div>
+      ) : data.viewMode === 'day' ? (
+        <DayView
+          currentDate={data.currentDate}
+          today={today}
+          getAppointmentsForDate={data.getAppointmentsForDate}
+          onClickAppt={(clientId) => navigate(`/clients/${clientId}`)}
+        />
       ) : data.viewMode === 'month' ? (
         <MonthView
           currentDate={data.currentDate}
@@ -367,6 +380,70 @@ function WeekView({
           ))}
         </div>
       </div>
+    </div>
+  )
+}
+
+/* ========== Day View ========== */
+function DayView({
+  currentDate,
+  today,
+  getAppointmentsForDate,
+  onClickAppt,
+}: {
+  currentDate: Date
+  today: string
+  getAppointmentsForDate: (d: string) => AgendaAppointment[]
+  onClickAppt: (clientId: string) => void
+}) {
+  const dateStr = fmtDateStr(currentDate)
+  const isToday = dateStr === today
+  const appts = getAppointmentsForDate(dateStr)
+
+  return (
+    <div className="bg-white rounded-xl border border-border overflow-hidden">
+      <div className={`px-5 py-3 border-b border-border ${isToday ? 'bg-accent-light' : ''}`}>
+        <p className={`text-sm font-semibold ${isToday ? 'text-accent' : 'text-navy'}`}>
+          {currentDate.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+          {isToday && <span className="ml-2 text-xs font-normal text-accent/70">— Aujourd'hui</span>}
+        </p>
+      </div>
+      {HOURS.map(hour => {
+        const hourAppts = appts.filter(a => parseInt(a.time.split(':')[0]) === hour)
+        return (
+          <div key={hour} className="flex border-b border-border last:border-b-0">
+            <div className="w-16 shrink-0 p-3 text-xs text-text-muted text-right pr-4 pt-3">
+              {hour.toString().padStart(2, '0')}:00
+            </div>
+            <div className={`flex-1 min-h-[64px] p-1.5 border-l border-border`}>
+              {hourAppts.map(a => {
+                const style = TYPE_STYLES[a.type] || TYPE_STYLES.tattoo
+                const durationRows = Math.max(1, Math.round(a.duration_minutes / 60))
+                return (
+                  <div
+                    key={a.id}
+                    className={`text-sm px-3 py-2 rounded-lg border-l-2 mb-1 cursor-pointer hover:opacity-80 ${style.bg} ${style.border}`}
+                    style={{ minHeight: `${durationRows * 56}px` }}
+                    onClick={() => onClickAppt(a.client_id)}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className={`font-semibold ${style.text}`}>{formatTime(a.time)}</span>
+                      <span className="text-navy font-medium">{a.client_first_name} {a.client_last_name}</span>
+                    </div>
+                    <div className="flex items-center gap-3 mt-0.5 text-xs text-text-muted">
+                      <span>{TYPE_LABELS[a.type] || a.type}</span>
+                      <span>{a.duration_minutes} min</span>
+                    </div>
+                    {a.description && (
+                      <p className="text-xs text-text-muted mt-0.5 truncate">{a.description}</p>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }
