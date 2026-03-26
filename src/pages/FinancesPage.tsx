@@ -50,7 +50,6 @@ function EvoBadge({ value }: { value: number }) {
 }
 
 const TYPE_TABS: { label: string; value: TypeFilter }[] = [
-  { label: 'Tout', value: 'all' },
   { label: 'Revenus', value: 'revenu' },
   { label: 'Dépenses', value: 'depense' },
 ]
@@ -327,7 +326,7 @@ export default function FinancesPage() {
                 <tr className="border-b border-border">
                   <th className="text-left text-xs font-medium text-text-muted px-5 py-3.5">Date</th>
                   <th className="text-left text-xs font-medium text-text-muted px-5 py-3.5">Description</th>
-                  <th className="text-left text-xs font-medium text-text-muted px-5 py-3.5">Client / Fournisseur</th>
+                  <th className="text-left text-xs font-medium text-text-muted px-5 py-3.5">{data.typeFilter === 'depense' ? 'Fournisseur' : 'Client'}</th>
                   <th className="text-left text-xs font-medium text-text-muted px-5 py-3.5">Paiement</th>
                   <th className="text-right text-xs font-medium text-text-muted px-5 py-3.5">Montant</th>
                   <th className="text-left text-xs font-medium text-text-muted px-5 py-3.5">Type</th>
@@ -406,8 +405,8 @@ export default function FinancesPage() {
               </p>
               <div className="flex gap-1">
                 <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage === 1}
-                  className="p-2 rounded-lg text-text-muted hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-                  <ChevronLeft size={16} />
+                  className="p-2 rounded-lg text-text-secondary hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                  <ChevronLeft size={18} />
                 </button>
                 {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
                   <button key={p} onClick={() => setPage(p)}
@@ -416,8 +415,8 @@ export default function FinancesPage() {
                   </button>
                 ))}
                 <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}
-                  className="p-2 rounded-lg text-text-muted hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-                  <ChevronRight size={16} />
+                  className="p-2 rounded-lg text-text-secondary hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                  <ChevronRight size={18} />
                 </button>
               </div>
             </div>
