@@ -329,7 +329,7 @@ export default function FinancesPage() {
                   <th className="text-left text-xs font-medium text-text-muted px-5 py-3.5">{data.typeFilter === 'depense' ? 'Fournisseur' : 'Client'}</th>
                   <th className="text-left text-xs font-medium text-text-muted px-5 py-3.5">Paiement</th>
                   <th className="text-right text-xs font-medium text-text-muted px-5 py-3.5">Montant</th>
-                  <th className="text-left text-xs font-medium text-text-muted px-5 py-3.5">{data.typeFilter === 'depense' ? 'Catégorie' : 'Type'}</th>
+                  <th className="text-left text-xs font-medium text-text-muted px-5 py-3.5">Type</th>
                   <th className="text-center text-xs font-medium text-text-muted px-3 py-3.5">Facture</th>
                   <th className="text-right text-xs font-medium text-text-muted px-5 py-3.5">Actions</th>
                 </tr>
@@ -376,7 +376,7 @@ export default function FinancesPage() {
                     <td className="px-3 py-3.5 text-center">
                       {entry.invoice_url && (
                         <a href={entry.invoice_url} target="_blank" rel="noopener noreferrer"
-                          className="inline-flex text-text-muted hover:text-accent transition-colors" title="Voir la facture">
+                          className={`inline-flex text-text-muted transition-colors ${entry.type === 'depense' ? 'hover:text-red' : 'hover:text-green'}`} title="Voir la facture">
                           <FileText size={16} />
                         </a>
                       )}
