@@ -20,11 +20,6 @@ import { useFinancesData } from '../hooks/useFinancesData'
 import type { TypeFilter, PeriodFilter } from '../hooks/useFinancesData'
 import AddFinanceModal from '../components/AddFinanceModal'
 
-const MONTHS_FR = [
-  'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
-  'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre',
-]
-
 function formatCurrency(n: number) {
   return n.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })
 }
@@ -127,7 +122,7 @@ export default function FinancesPage() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `finances-${data.periodFilter}-${now.toISOString().split('T')[0]}.csv`
+    a.download = `finances-${data.periodFilter}-${new Date().toISOString().split('T')[0]}.csv`
     a.click()
     URL.revokeObjectURL(url)
   }
