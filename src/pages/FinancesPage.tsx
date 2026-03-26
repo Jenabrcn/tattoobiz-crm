@@ -314,7 +314,7 @@ export default function FinancesPage() {
           <p className="text-text-muted">Aucune entrée pour cette période.</p>
         </div>
       ) : (() => {
-        const PAGE_SIZE = 10
+        const PAGE_SIZE = 5
         const totalPages = Math.max(1, Math.ceil(data.entries.length / PAGE_SIZE))
         const safePage = Math.min(page, totalPages)
         const paginated = data.entries.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
@@ -329,7 +329,7 @@ export default function FinancesPage() {
                   <th className="text-left text-xs font-medium text-text-muted px-5 py-3.5">{data.typeFilter === 'depense' ? 'Fournisseur' : 'Client'}</th>
                   <th className="text-left text-xs font-medium text-text-muted px-5 py-3.5">Paiement</th>
                   <th className="text-right text-xs font-medium text-text-muted px-5 py-3.5">Montant</th>
-                  <th className="text-left text-xs font-medium text-text-muted px-5 py-3.5">Type</th>
+                  <th className="text-left text-xs font-medium text-text-muted px-5 py-3.5">{data.typeFilter === 'depense' ? 'Catégorie' : 'Type'}</th>
                   <th className="text-center text-xs font-medium text-text-muted px-3 py-3.5">Facture</th>
                   <th className="text-right text-xs font-medium text-text-muted px-5 py-3.5">Actions</th>
                 </tr>
@@ -365,7 +365,13 @@ export default function FinancesPage() {
                       {entry.type === 'depense' ? '-' : '+'}{formatCurrency(entry.amount)}
                     </td>
                     <td className="px-5 py-3.5">
-                      <TypeBadge type={entry.type} />
+                      {data.typeFilter === 'depense' ? (
+                        <span className="text-xs font-medium px-2.5 py-1 rounded-lg bg-gray-100 text-text-secondary">
+                          {entry.category || 'Divers'}
+                        </span>
+                      ) : (
+                        <TypeBadge type={entry.type} />
+                      )}
                     </td>
                     <td className="px-3 py-3.5 text-center">
                       {entry.invoice_url && (
