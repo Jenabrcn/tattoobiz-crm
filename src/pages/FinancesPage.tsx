@@ -157,14 +157,14 @@ export default function FinancesPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         <StatCard
           emoji="💰"
-          label="Revenus du mois"
+          label="Revenus"
           value={formatCurrency(data.curRevenue)}
           valueColor="text-green"
           evo={data.revenueEvo}
         />
         <StatCard
           emoji="📉"
-          label="Dépenses du mois"
+          label="Dépenses"
           value={formatCurrency(data.curExpenses)}
           valueColor="text-red"
           evo={data.expenseEvo}
@@ -342,7 +342,7 @@ export default function FinancesPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Stacked bar chart */}
         <div className="bg-white rounded-xl border border-border p-6">
-          <h3 className="text-sm font-semibold text-navy mb-4">Revenus vs Dépenses — 6 derniers mois</h3>
+          <h3 className="text-sm font-semibold text-navy mb-4">Revenus vs Dépenses</h3>
           <ResponsiveContainer width="100%" height={250}>
             <BarChart data={data.monthBars}>
               <XAxis
@@ -374,15 +374,15 @@ export default function FinancesPage() {
 
         {/* Top expenses */}
         <div className="bg-white rounded-xl border border-border p-6">
-          <h3 className="text-sm font-semibold text-navy mb-4">Top dépenses ce mois</h3>
+          <h3 className="text-sm font-semibold text-navy mb-4">Top dépenses</h3>
           {data.topExpenses.length === 0 ? (
-            <p className="text-sm text-text-muted text-center py-8">Aucune dépense ce mois</p>
+            <p className="text-sm text-text-muted text-center py-8">Aucune dépense sur cette période</p>
           ) : (
             <div className="space-y-3">
               {data.topExpenses.map(cat => {
                 const color = CAT_COLORS[cat.category] || CAT_COLORS['Divers']
-                const pct = data.totalExpensesThisMonth > 0
-                  ? Math.round((cat.amount / data.totalExpensesThisMonth) * 100)
+                const pct = data.totalExpenses > 0
+                  ? Math.round((cat.amount / data.totalExpenses) * 100)
                   : 0
                 return (
                   <div key={cat.category}>
@@ -405,7 +405,7 @@ export default function FinancesPage() {
               <div className="pt-3 mt-3 border-t border-border">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-navy">
-                    Total : {formatCurrency(data.totalExpensesThisMonth)}
+                    Total : {formatCurrency(data.totalExpenses)}
                   </span>
                   <span className="text-sm text-text-muted">
                     Budget restant :{' '}

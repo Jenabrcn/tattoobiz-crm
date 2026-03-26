@@ -30,11 +30,28 @@ interface CategorySum {
 }
 
 function fmtDate(d: Date) {
-  return d.toISOString().split('T')[0]
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
 }
 
 function startOfMonth(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), 1)
+}
+
+function getGroupKey(dateStr: string, groupBy: 'day' | 'week' | 'month'): string {
+  const d = new Date(dateStr)
+  if (groupBy === 'month') {
+    return d.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' })
+  }
+  if (groupBy === 'week') {
+    const day = d.getDay()
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1)
+    const monday = new Date(d.getFullYear(), d.getMonth(), diff)
+    return monday.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+  }
+  return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
 }
 
 export function useFinancesData() {
@@ -47,33 +64,16 @@ export function useFinancesData() {
   const [customTo, setCustomTo] = useState('')
   const [search, setSearch] = useState('')
 
-  // Stats
-  const [curRevenue, setCurRevenue] = useState(0)
-  const [curExpenses, setCurExpenses] = useState(0)
-  const [prevRevenue, setPrevRevenue] = useState(0)
-  const [prevExpenses, setPrevExpenses] = useState(0)
-
-  // Charts
-  const [monthBars, setMonthBars] = useState<MonthBar[]>([])
-  const [topExpenses, setTopExpenses] = useState<CategorySum[]>([])
-
   const fetchData = useCallback(async () => {
     if (!user) return
     setLoading(true)
 
     try {
-      const now = new Date()
-      const monthStart = fmtDate(startOfMonth(now))
-      const prevMonthStart = fmtDate(startOfMonth(new Date(now.getFullYear(), now.getMonth() - 1, 1)))
-      const prevMonthEnd = fmtDate(new Date(now.getFullYear(), now.getMonth(), 0))
-
-      // Fetch all finances
       const { data: finances } = await supabase
         .from('finances')
         .select('*')
         .order('date', { ascending: false })
 
-      // Fetch clients for names
       const { data: clients } = await supabase
         .from('clients')
         .select('*')
@@ -96,53 +96,8 @@ export function useFinancesData() {
       }))
 
       setAllEntries(entries)
-
-      // Current month stats
-      const curMonth = entries.filter(e => e.date >= monthStart)
-      setCurRevenue(curMonth.filter(e => e.type === 'revenu' || e.type === 'arrhes').reduce((s, e) => s + e.amount, 0))
-      setCurExpenses(curMonth.filter(e => e.type === 'depense').reduce((s, e) => s + e.amount, 0))
-
-      // Previous month stats
-      const prevMonth = entries.filter(e => e.date >= prevMonthStart && e.date <= prevMonthEnd)
-      setPrevRevenue(prevMonth.filter(e => e.type === 'revenu' || e.type === 'arrhes').reduce((s, e) => s + e.amount, 0))
-      setPrevExpenses(prevMonth.filter(e => e.type === 'depense').reduce((s, e) => s + e.amount, 0))
-
-      // Last 6 months bar chart data
-      const bars: MonthBar[] = []
-      for (let i = 5; i >= 0; i--) {
-        const m = new Date(now.getFullYear(), now.getMonth() - i, 1)
-        const mEnd = new Date(m.getFullYear(), m.getMonth() + 1, 0)
-        const mStart = fmtDate(m)
-        const mEndStr = fmtDate(mEnd)
-        const mEntries = entries.filter(e => e.date >= mStart && e.date <= mEndStr)
-        bars.push({
-          label: m.toLocaleDateString('fr-FR', { month: 'short' }),
-          revenue: mEntries.filter(e => e.type === 'revenu' || e.type === 'arrhes').reduce((s, e) => s + e.amount, 0),
-          expenses: mEntries.filter(e => e.type === 'depense').reduce((s, e) => s + e.amount, 0),
-        })
-      }
-      setMonthBars(bars)
-
-      // Top expenses by category this month
-      const curExpEntries = curMonth.filter(e => e.type === 'depense')
-      const catMap = new Map<string, number>()
-      curExpEntries.forEach(e => {
-        const cat = e.category || 'Divers'
-        catMap.set(cat, (catMap.get(cat) || 0) + e.amount)
-      })
-      const sorted = [...catMap.entries()]
-        .map(([category, amount]) => ({ category, amount }))
-        .sort((a, b) => b.amount - a.amount)
-      setTopExpenses(sorted)
     } catch {
-      // On error, show empty state instead of blocking UI
       setAllEntries([])
-      setCurRevenue(0)
-      setCurExpenses(0)
-      setPrevRevenue(0)
-      setPrevExpenses(0)
-      setMonthBars([])
-      setTopExpenses([])
     }
 
     setLoading(false)
@@ -152,25 +107,93 @@ export function useFinancesData() {
     fetchData()
   }, [fetchData])
 
-  // Filtered entries
+  // --- Period filtering ---
   const now = new Date()
   const monthStart = fmtDate(startOfMonth(now))
   const thirtyDaysAgo = fmtDate(new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000))
   const lastMonthStart = fmtDate(new Date(now.getFullYear(), now.getMonth() - 1, 1))
   const lastMonthEnd = fmtDate(new Date(now.getFullYear(), now.getMonth(), 0))
 
-  let filtered = allEntries
+  let periodFiltered = allEntries
+  if (periodFilter === 'month') periodFiltered = periodFiltered.filter(e => e.date >= monthStart)
+  else if (periodFilter === '30d') periodFiltered = periodFiltered.filter(e => e.date >= thirtyDaysAgo)
+  else if (periodFilter === 'last_month') periodFiltered = periodFiltered.filter(e => e.date >= lastMonthStart && e.date <= lastMonthEnd)
+  else if (periodFilter === 'custom' && customFrom && customTo) periodFiltered = periodFiltered.filter(e => e.date >= customFrom && e.date <= customTo)
 
-  // Period filter
-  if (periodFilter === 'month') filtered = filtered.filter(e => e.date >= monthStart)
-  else if (periodFilter === '30d') filtered = filtered.filter(e => e.date >= thirtyDaysAgo)
-  else if (periodFilter === 'last_month') filtered = filtered.filter(e => e.date >= lastMonthStart && e.date <= lastMonthEnd)
-  else if (periodFilter === 'custom' && customFrom && customTo) filtered = filtered.filter(e => e.date >= customFrom && e.date <= customTo)
+  // --- Stats from period-filtered entries ---
+  const curRevenue = periodFiltered.filter(e => e.type === 'revenu' || e.type === 'arrhes').reduce((s, e) => s + e.amount, 0)
+  const curExpenses = periodFiltered.filter(e => e.type === 'depense').reduce((s, e) => s + e.amount, 0)
+  const curNet = curRevenue - curExpenses
 
-  // Type filter
+  // --- Previous period for evolution ---
+  let prevRevenue = 0
+  let prevExpenses = 0
+  if (periodFilter === 'month') {
+    const prev = allEntries.filter(e => e.date >= lastMonthStart && e.date <= lastMonthEnd)
+    prevRevenue = prev.filter(e => e.type === 'revenu' || e.type === 'arrhes').reduce((s, e) => s + e.amount, 0)
+    prevExpenses = prev.filter(e => e.type === 'depense').reduce((s, e) => s + e.amount, 0)
+  } else if (periodFilter === '30d') {
+    const prevEnd = fmtDate(new Date(now.getTime() - 30 * 86400000))
+    const prevStart = fmtDate(new Date(now.getTime() - 60 * 86400000))
+    const prev = allEntries.filter(e => e.date >= prevStart && e.date < prevEnd)
+    prevRevenue = prev.filter(e => e.type === 'revenu' || e.type === 'arrhes').reduce((s, e) => s + e.amount, 0)
+    prevExpenses = prev.filter(e => e.type === 'depense').reduce((s, e) => s + e.amount, 0)
+  } else if (periodFilter === 'last_month') {
+    const pm2Start = fmtDate(new Date(now.getFullYear(), now.getMonth() - 2, 1))
+    const pm2End = fmtDate(new Date(now.getFullYear(), now.getMonth() - 1, 0))
+    const prev = allEntries.filter(e => e.date >= pm2Start && e.date <= pm2End)
+    prevRevenue = prev.filter(e => e.type === 'revenu' || e.type === 'arrhes').reduce((s, e) => s + e.amount, 0)
+    prevExpenses = prev.filter(e => e.type === 'depense').reduce((s, e) => s + e.amount, 0)
+  }
+  const prevNet = prevRevenue - prevExpenses
+
+  // --- Bar chart from period-filtered entries ---
+  const periodDates = periodFiltered.map(e => e.date).sort()
+  const rangeStart = periodDates[0] || fmtDate(now)
+  const rangeEnd = periodDates[periodDates.length - 1] || fmtDate(now)
+  const rangeDays = (new Date(rangeEnd).getTime() - new Date(rangeStart).getTime()) / 86400000
+  const groupBy: 'day' | 'week' | 'month' = rangeDays <= 35 ? 'day' : rangeDays <= 120 ? 'week' : 'month'
+
+  const revMap = new Map<string, number>()
+  const expMap = new Map<string, number>()
+  periodFiltered.forEach(e => {
+    const key = getGroupKey(e.date, groupBy)
+    if (e.type === 'revenu' || e.type === 'arrhes') {
+      revMap.set(key, (revMap.get(key) || 0) + e.amount)
+    } else if (e.type === 'depense') {
+      expMap.set(key, (expMap.get(key) || 0) + e.amount)
+    }
+  })
+  const allKeys: string[] = []
+  const seen = new Set<string>()
+  const cur = new Date(rangeStart)
+  const end = new Date(rangeEnd)
+  while (cur <= end) {
+    const key = getGroupKey(fmtDate(cur), groupBy)
+    if (!seen.has(key)) { seen.add(key); allKeys.push(key) }
+    if (groupBy === 'month') cur.setMonth(cur.getMonth() + 1)
+    else if (groupBy === 'week') cur.setDate(cur.getDate() + 7)
+    else cur.setDate(cur.getDate() + 1)
+  }
+  const monthBars: MonthBar[] = allKeys.map(k => ({
+    label: k,
+    revenue: revMap.get(k) || 0,
+    expenses: expMap.get(k) || 0,
+  }))
+
+  // --- Top expenses from period-filtered entries ---
+  const catMap = new Map<string, number>()
+  periodFiltered.filter(e => e.type === 'depense').forEach(e => {
+    const cat = e.category || 'Divers'
+    catMap.set(cat, (catMap.get(cat) || 0) + e.amount)
+  })
+  const topExpenses: CategorySum[] = [...catMap.entries()]
+    .map(([category, amount]) => ({ category, amount }))
+    .sort((a, b) => b.amount - a.amount)
+
+  // --- Type + search filter for table ---
+  let filtered = periodFiltered
   if (typeFilter !== 'all') filtered = filtered.filter(e => e.type === typeFilter)
-
-  // Search
   if (search.trim()) {
     const q = search.toLowerCase()
     filtered = filtered.filter(e =>
@@ -179,9 +202,6 @@ export function useFinancesData() {
       (e.category && e.category.toLowerCase().includes(q))
     )
   }
-
-  const curNet = curRevenue - curExpenses
-  const prevNet = prevRevenue - prevExpenses
 
   function getEvolution(current: number, previous: number): number {
     if (previous === 0) return current > 0 ? 100 : 0
@@ -213,7 +233,7 @@ export function useFinancesData() {
     netEvo: getEvolution(curNet, prevNet),
     monthBars,
     topExpenses,
-    totalExpensesThisMonth: curExpenses,
+    totalExpenses: curExpenses,
     refresh: fetchData,
   }
 }
