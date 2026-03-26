@@ -805,14 +805,14 @@ function EditFinanceModal({ entry, onClose, onUpdated }: { entry: FinanceEntry; 
           </div>
           {form.type === 'depense' && (
             <div>
-              <label className="block text-sm font-medium text-navy mb-1">Fournisseur (optionnel)</label>
+              <label className="block text-sm font-medium text-navy mb-1">Fournisseur</label>
               <input value={form.supplier} onChange={e => set('supplier', e.target.value)}
                 placeholder="Ex: Amazon, Encre Shop, Propriétaire..."
                 className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent" />
             </div>
           )}
           <div>
-            <label className="block text-sm font-medium text-navy mb-1">Facture / justificatif (optionnel)</label>
+            <label className="block text-sm font-medium text-navy mb-1">Facture / justificatif</label>
             {entry.invoice_url && !invoiceFile && (
               <a href={entry.invoice_url} target="_blank" rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 text-xs text-accent hover:underline mb-2">
