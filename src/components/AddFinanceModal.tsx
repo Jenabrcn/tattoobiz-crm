@@ -74,7 +74,7 @@ export default function AddFinanceModal({ open, onClose, onCreated }: Props) {
     const dbType: 'revenu' | 'depense' | 'arrhes' = form.type === 'revenu' && form.subtype === 'arrhes' ? 'arrhes' : form.type as 'revenu' | 'depense'
 
     let invoiceUrl: string | null = null
-    if (invoiceFile && form.type !== 'depense') {
+    if (invoiceFile) {
       const ext = invoiceFile.name.split('.').pop()
       const path = `${user.id}/${Date.now()}.${ext}`
       const { error: uploadErr } = await supabase.storage.from('invoices').upload(path, invoiceFile)
@@ -286,22 +286,20 @@ export default function AddFinanceModal({ open, onClose, onCreated }: Props) {
             )}
           </div>
 
-          {/* Invoice upload (revenue only) */}
-          {form.type !== 'depense' && (
-            <div>
-              <label className="block text-sm font-medium text-navy mb-1">Facture (optionnel)</label>
-              <label className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-dashed border-border text-sm text-text-muted cursor-pointer hover:border-accent hover:bg-accent-light/50 transition-colors">
-                <Upload size={16} />
-                {invoiceFile ? invoiceFile.name : 'Ajouter un PDF ou une image'}
-                <input
-                  type="file"
-                  accept=".pdf,image/*"
-                  className="hidden"
-                  onChange={e => setInvoiceFile(e.target.files?.[0] || null)}
-                />
-              </label>
-            </div>
-          )}
+          {/* Invoice upload */}
+          <div>
+            <label className="block text-sm font-medium text-navy mb-1">Facture / justificatif (optionnel)</label>
+            <label className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-dashed border-border text-sm text-text-muted cursor-pointer hover:border-accent hover:bg-accent-light/50 transition-colors">
+              <Upload size={16} />
+              {invoiceFile ? invoiceFile.name : 'Ajouter un PDF ou une image'}
+              <input
+                type="file"
+                accept=".pdf,image/*"
+                className="hidden"
+                onChange={e => setInvoiceFile(e.target.files?.[0] || null)}
+              />
+            </label>
+          </div>
 
           <div className="flex gap-3 pt-2">
             <button
