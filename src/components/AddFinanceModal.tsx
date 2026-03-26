@@ -227,7 +227,7 @@ export default function AddFinanceModal({ open, onClose, onCreated }: Props) {
           {/* Client / Supplier */}
           {form.type === 'depense' ? (
             <div>
-              <label className="block text-sm font-medium text-navy mb-1">Fournisseur (optionnel)</label>
+              <label className="block text-sm font-medium text-navy mb-1">Fournisseur</label>
               <input
                 value={form.supplier}
                 onChange={e => set('supplier', e.target.value)}
@@ -237,7 +237,7 @@ export default function AddFinanceModal({ open, onClose, onCreated }: Props) {
             </div>
           ) : (
             <div className="relative">
-              <label className="block text-sm font-medium text-navy mb-1">Client (optionnel)</label>
+              <label className="block text-sm font-medium text-navy mb-1">Client</label>
               <div className="relative">
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
                 <input
@@ -301,7 +301,7 @@ export default function AddFinanceModal({ open, onClose, onCreated }: Props) {
 
           {/* Invoice upload */}
           <div>
-            <label className="block text-sm font-medium text-navy mb-1">Facture / justificatif (optionnel)</label>
+            <label className="block text-sm font-medium text-navy mb-1">Facture / justificatif</label>
             <label className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-dashed border-border text-sm text-text-muted cursor-pointer hover:border-accent hover:bg-accent-light/50 transition-colors">
               <Upload size={16} />
               {invoiceFile ? invoiceFile.name : 'Ajouter un PDF ou une image'}
