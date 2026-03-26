@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Plus,
   Download,
@@ -9,6 +10,9 @@ import {
   X,
   Pencil,
   Trash2,
+  Eye,
+  FileText,
+  Upload,
 } from 'lucide-react'
 import {
   BarChart,
@@ -85,6 +89,7 @@ const CAT_COLORS: Record<string, string> = {
 
 export default function FinancesPage() {
   const data = useFinancesData()
+  const navigate = useNavigate()
   const [showModal, setShowModal] = useState(false)
   const [selectedEntry, setSelectedEntry] = useState<FinanceEntry | null>(null)
   const [editEntry, setEditEntry] = useState<FinanceEntry | null>(null)
@@ -318,28 +323,57 @@ export default function FinancesPage() {
                   <th className="text-left text-xs font-medium text-text-muted px-5 py-3.5">Paiement</th>
                   <th className="text-right text-xs font-medium text-text-muted px-5 py-3.5">Montant</th>
                   <th className="text-left text-xs font-medium text-text-muted px-5 py-3.5">Type</th>
+                  <th className="text-right text-xs font-medium text-text-muted px-5 py-3.5">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {data.entries.map(entry => (
                   <tr
                     key={entry.id}
-                    className="border-b border-border last:border-b-0 hover:bg-gray-50/50 cursor-pointer transition-colors"
-                    onClick={() => { setSelectedEntry(entry); setConfirmDeleteId(null) }}
+                    className="border-b border-border last:border-b-0 hover:bg-gray-50/50 transition-colors"
                   >
                     <td className="px-5 py-3.5 text-sm text-text-secondary">{formatDateFr(entry.date)}</td>
                     <td className="px-5 py-3.5 text-sm text-navy">{entry.description || '—'}</td>
-                    <td className="px-5 py-3.5 text-sm text-text-secondary">{entry.client_name || '—'}</td>
+                    <td className="px-5 py-3.5 text-sm">
+                      {entry.client_id ? (
+                        <button
+                          onClick={() => navigate(`/clients/${entry.client_id}`)}
+                          className="text-accent hover:underline"
+                        >
+                          {entry.client_name}
+                        </button>
+                      ) : (
+                        <span className="text-text-secondary">—</span>
+                      )}
+                    </td>
                     <td className="px-5 py-3.5 text-sm text-text-secondary">
                       {PAYMENT_LABELS[entry.payment_method] || entry.payment_method}
                     </td>
                     <td className={`px-5 py-3.5 text-sm font-medium text-right ${
-                      entry.type === 'depense' ? 'text-red' : entry.type === 'arrhes' ? 'text-amber-600' : 'text-green'
+                      entry.type === 'depense' ? 'text-red' : 'text-green'
                     }`}>
                       {entry.type === 'depense' ? '-' : '+'}{formatCurrency(entry.amount)}
                     </td>
                     <td className="px-5 py-3.5">
                       <TypeBadge type={entry.type} />
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={() => { setSelectedEntry(entry); setConfirmDeleteId(null) }}
+                          className="p-2 rounded-lg text-text-muted hover:bg-gray-100 hover:text-accent transition-colors"
+                          title="Voir"
+                        >
+                          <Eye size={16} />
+                        </button>
+                        <button
+                          onClick={() => setEditEntry(entry)}
+                          className="p-2 rounded-lg text-text-muted hover:bg-gray-100 hover:text-accent transition-colors"
+                          title="Modifier"
+                        >
+                          <Pencil size={16} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -468,12 +502,35 @@ export default function FinancesPage() {
               } />
               <DetailRow label="Montant" value={`${selectedEntry.type === 'depense' ? '-' : '+'}${formatCurrency(selectedEntry.amount)}`} />
               <DetailRow label="Paiement" value={PAYMENT_LABELS[selectedEntry.payment_method] || selectedEntry.payment_method} />
-              {selectedEntry.client_name && <DetailRow label="Client" value={selectedEntry.client_name} />}
+              {selectedEntry.client_name && (
+                <div className="flex justify-between items-center py-2 border-b border-border">
+                  <span className="text-sm text-text-secondary">Client</span>
+                  <button
+                    onClick={() => { setSelectedEntry(null); navigate(`/clients/${selectedEntry.client_id}`) }}
+                    className="text-sm font-medium text-accent hover:underline"
+                  >
+                    {selectedEntry.client_name}
+                  </button>
+                </div>
+              )}
               {selectedEntry.category && <DetailRow label="Catégorie" value={selectedEntry.category} />}
               {selectedEntry.description && (
-                <div className="py-2">
+                <div className="py-2 border-b border-border">
                   <span className="text-sm text-text-secondary">Description</span>
                   <p className="text-sm text-navy mt-1">{selectedEntry.description}</p>
+                </div>
+              )}
+              {selectedEntry.invoice_url && (
+                <div className="py-2">
+                  <a
+                    href={selectedEntry.invoice_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 text-sm font-medium text-accent hover:underline"
+                  >
+                    <FileText size={16} />
+                    Voir la facture
+                  </a>
                 </div>
               )}
             </div>
@@ -579,6 +636,7 @@ const EDIT_EXPENSE_CATEGORIES = ['Loyer', 'Matériel', 'Pub', 'Abonnements', 'Di
 function EditFinanceModal({ entry, onClose, onUpdated }: { entry: FinanceEntry; onClose: () => void; onUpdated: () => void }) {
   const isRevenue = entry.type === 'revenu' || entry.type === 'arrhes'
   const [saving, setSaving] = useState(false)
+  const [invoiceFile, setInvoiceFile] = useState<File | null>(null)
   const [form, setForm] = useState({
     type: isRevenue ? 'revenu' : 'depense',
     subtype: entry.type === 'arrhes' ? 'arrhes' : 'solde',
@@ -594,6 +652,18 @@ function EditFinanceModal({ entry, onClose, onUpdated }: { entry: FinanceEntry; 
     e.preventDefault()
     setSaving(true)
     const dbType: 'revenu' | 'depense' | 'arrhes' = form.type === 'revenu' && form.subtype === 'arrhes' ? 'arrhes' : form.type as 'revenu' | 'depense'
+
+    let invoiceUrl = entry.invoice_url
+    if (invoiceFile && form.type !== 'depense') {
+      const ext = invoiceFile.name.split('.').pop()
+      const path = `${entry.id}/${Date.now()}.${ext}`
+      const { error: uploadErr } = await supabase.storage.from('invoices').upload(path, invoiceFile)
+      if (!uploadErr) {
+        const { data: urlData } = supabase.storage.from('invoices').getPublicUrl(path)
+        invoiceUrl = urlData.publicUrl
+      }
+    }
+
     await supabase.from('finances').update({
       type: dbType,
       amount: parseFloat(form.amount),
@@ -601,6 +671,7 @@ function EditFinanceModal({ entry, onClose, onUpdated }: { entry: FinanceEntry; 
       date: form.date,
       payment_method: form.payment_method,
       category: form.type === 'depense' ? (form.category || 'Divers') : null,
+      invoice_url: form.type === 'depense' ? null : invoiceUrl,
     }).eq('id', entry.id)
     setSaving(false)
     onUpdated()
@@ -681,6 +752,24 @@ function EditFinanceModal({ entry, onClose, onUpdated }: { entry: FinanceEntry; 
               </div>
             )}
           </div>
+          {form.type !== 'depense' && (
+            <div>
+              <label className="block text-sm font-medium text-navy mb-1">Facture (optionnel)</label>
+              {entry.invoice_url && !invoiceFile && (
+                <a href={entry.invoice_url} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs text-accent hover:underline mb-2">
+                  <FileText size={14} />
+                  Facture existante
+                </a>
+              )}
+              <label className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-dashed border-border text-sm text-text-muted cursor-pointer hover:border-accent hover:bg-accent-light/50 transition-colors">
+                <Upload size={16} />
+                {invoiceFile ? invoiceFile.name : 'Remplacer ou ajouter un fichier'}
+                <input type="file" accept=".pdf,image/*" className="hidden"
+                  onChange={e => setInvoiceFile(e.target.files?.[0] || null)} />
+              </label>
+            </div>
+          )}
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose}
               className="flex-1 px-4 py-2.5 text-sm font-medium rounded-xl border border-border text-text-secondary hover:bg-gray-50 transition-colors">

@@ -123,6 +123,7 @@ export interface Database {
           payment_method: 'carte' | 'especes' | 'virement'
           category: string | null
           type: 'revenu' | 'depense' | 'arrhes'
+          invoice_url: string | null
           created_at: string
         }
         Insert: {
@@ -135,6 +136,7 @@ export interface Database {
           payment_method: 'carte' | 'especes' | 'virement'
           category?: string | null
           type: 'revenu' | 'depense' | 'arrhes'
+          invoice_url?: string | null
           created_at?: string
         }
         Update: {
@@ -147,6 +149,7 @@ export interface Database {
           payment_method?: 'carte' | 'especes' | 'virement'
           category?: string | null
           type?: 'revenu' | 'depense' | 'arrhes'
+          invoice_url?: string | null
           created_at?: string
         }
         Relationships: []
