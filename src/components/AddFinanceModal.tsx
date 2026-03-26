@@ -39,6 +39,7 @@ export default function AddFinanceModal({ open, onClose, onCreated }: Props) {
     date: new Date().toISOString().split('T')[0],
     payment_method: 'carte' as 'carte' | 'especes' | 'virement',
     category: '',
+    supplier: '',
   })
 
   useEffect(() => {
@@ -90,7 +91,8 @@ export default function AddFinanceModal({ open, onClose, onCreated }: Props) {
       amount: parseFloat(form.amount),
       description: form.description.trim() || null,
       date: form.date,
-      client_id: selectedClient?.id || null,
+      client_id: form.type !== 'depense' ? (selectedClient?.id || null) : null,
+      supplier: form.type === 'depense' ? (form.supplier.trim() || null) : null,
       payment_method: form.payment_method,
       category: form.type === 'depense' ? (form.category || 'Divers') : null,
       invoice_url: invoiceUrl,
@@ -107,6 +109,7 @@ export default function AddFinanceModal({ open, onClose, onCreated }: Props) {
         date: new Date().toISOString().split('T')[0],
         payment_method: 'carte',
         category: '',
+        supplier: '',
       })
       setSelectedClient(null)
       setClientSearch('')
@@ -221,8 +224,18 @@ export default function AddFinanceModal({ open, onClose, onCreated }: Props) {
             />
           </div>
 
-          {/* Client (optional) */}
-          {form.type !== 'depense' && (
+          {/* Client / Supplier */}
+          {form.type === 'depense' ? (
+            <div>
+              <label className="block text-sm font-medium text-navy mb-1">Fournisseur (optionnel)</label>
+              <input
+                value={form.supplier}
+                onChange={e => set('supplier', e.target.value)}
+                placeholder="Ex: Amazon, Encre Shop, Propriétaire..."
+                className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+              />
+            </div>
+          ) : (
             <div className="relative">
               <label className="block text-sm font-medium text-navy mb-1">Client (optionnel)</label>
               <div className="relative">

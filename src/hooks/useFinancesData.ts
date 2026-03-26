@@ -12,6 +12,7 @@ export interface FinanceEntry {
   category: string | null
   client_id: string | null
   client_name: string | null
+  supplier: string | null
   invoice_url: string | null
   created_at: string
 }
@@ -93,6 +94,7 @@ export function useFinancesData() {
         category: f.category,
         client_id: f.client_id,
         client_name: f.client_id ? clientMap.get(f.client_id) || null : null,
+        supplier: f.supplier || null,
         invoice_url: f.invoice_url || null,
         created_at: f.created_at,
       }))
