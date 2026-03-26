@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { X, Search } from 'lucide-react'
+import { X, Search, Upload } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -30,6 +30,7 @@ export default function AddFinanceModal({ open, onClose, onCreated }: Props) {
   const [clientSearch, setClientSearch] = useState('')
   const [showDropdown, setShowDropdown] = useState(false)
   const [selectedClient, setSelectedClient] = useState<ClientOption | null>(null)
+  const [invoiceFile, setInvoiceFile] = useState<File | null>(null)
   const [form, setForm] = useState({
     type: 'revenu' as 'revenu' | 'depense',
     subtype: 'solde' as 'arrhes' | 'solde',
@@ -71,6 +72,18 @@ export default function AddFinanceModal({ open, onClose, onCreated }: Props) {
     setSaving(true)
 
     const dbType: 'revenu' | 'depense' | 'arrhes' = form.type === 'revenu' && form.subtype === 'arrhes' ? 'arrhes' : form.type as 'revenu' | 'depense'
+
+    let invoiceUrl: string | null = null
+    if (invoiceFile && form.type !== 'depense') {
+      const ext = invoiceFile.name.split('.').pop()
+      const path = `${user.id}/${Date.now()}.${ext}`
+      const { error: uploadErr } = await supabase.storage.from('invoices').upload(path, invoiceFile)
+      if (!uploadErr) {
+        const { data: urlData } = supabase.storage.from('invoices').getPublicUrl(path)
+        invoiceUrl = urlData.publicUrl
+      }
+    }
+
     const { error } = await supabase.from('finances').insert({
       user_id: user.id,
       type: dbType,
@@ -80,10 +93,12 @@ export default function AddFinanceModal({ open, onClose, onCreated }: Props) {
       client_id: selectedClient?.id || null,
       payment_method: form.payment_method,
       category: form.type === 'depense' ? (form.category || 'Divers') : null,
+      invoice_url: invoiceUrl,
     })
 
     setSaving(false)
     if (!error) {
+      setInvoiceFile(null)
       setForm({
         type: 'revenu',
         subtype: 'solde',
@@ -270,6 +285,23 @@ export default function AddFinanceModal({ open, onClose, onCreated }: Props) {
               </div>
             )}
           </div>
+
+          {/* Invoice upload (revenue only) */}
+          {form.type !== 'depense' && (
+            <div>
+              <label className="block text-sm font-medium text-navy mb-1">Facture (optionnel)</label>
+              <label className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-dashed border-border text-sm text-text-muted cursor-pointer hover:border-accent hover:bg-accent-light/50 transition-colors">
+                <Upload size={16} />
+                {invoiceFile ? invoiceFile.name : 'Ajouter un PDF ou une image'}
+                <input
+                  type="file"
+                  accept=".pdf,image/*"
+                  className="hidden"
+                  onChange={e => setInvoiceFile(e.target.files?.[0] || null)}
+                />
+              </label>
+            </div>
+          )}
 
           <div className="flex gap-3 pt-2">
             <button
