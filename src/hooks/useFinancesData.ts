@@ -204,6 +204,7 @@ export function useFinancesData() {
     filtered = filtered.filter(e =>
       (e.description && e.description.toLowerCase().includes(q)) ||
       (e.client_name && e.client_name.toLowerCase().includes(q)) ||
+      (e.supplier && e.supplier.toLowerCase().includes(q)) ||
       (e.category && e.category.toLowerCase().includes(q))
     )
   }

@@ -217,7 +217,7 @@ export default function AddFinanceModal({ open, onClose, onCreated }: Props) {
                 form.type === 'depense'
                   ? 'Ex: Loyer studio, Encre, Fournitures, Pub Meta...'
                   : form.subtype === 'arrhes'
-                  ? 'Ex: Acompte tatouage bras, Acompte dos complet...'
+                  ? 'Ex: Arrhes tatouage bras, Arrhes dos complet...'
                   : 'Ex: Reste tatouage bras, Solde dos complet...'
               }
               className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
