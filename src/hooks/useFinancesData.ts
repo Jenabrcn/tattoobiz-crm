@@ -16,7 +16,7 @@ export interface FinanceEntry {
 }
 
 export type TypeFilter = 'all' | 'revenu' | 'depense' | 'arrhes'
-export type PeriodFilter = 'month' | '30d' | '3m' | 'all'
+export type PeriodFilter = 'month' | '30d' | 'last_month' | 'all' | 'custom'
 
 interface MonthBar {
   label: string
@@ -43,6 +43,8 @@ export function useFinancesData() {
   const [allEntries, setAllEntries] = useState<FinanceEntry[]>([])
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all')
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>('month')
+  const [customFrom, setCustomFrom] = useState('')
+  const [customTo, setCustomTo] = useState('')
   const [search, setSearch] = useState('')
 
   // Stats
@@ -154,14 +156,16 @@ export function useFinancesData() {
   const now = new Date()
   const monthStart = fmtDate(startOfMonth(now))
   const thirtyDaysAgo = fmtDate(new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000))
-  const threeMonthsAgo = fmtDate(startOfMonth(new Date(now.getFullYear(), now.getMonth() - 3, 1)))
+  const lastMonthStart = fmtDate(new Date(now.getFullYear(), now.getMonth() - 1, 1))
+  const lastMonthEnd = fmtDate(new Date(now.getFullYear(), now.getMonth(), 0))
 
   let filtered = allEntries
 
   // Period filter
   if (periodFilter === 'month') filtered = filtered.filter(e => e.date >= monthStart)
   else if (periodFilter === '30d') filtered = filtered.filter(e => e.date >= thirtyDaysAgo)
-  else if (periodFilter === '3m') filtered = filtered.filter(e => e.date >= threeMonthsAgo)
+  else if (periodFilter === 'last_month') filtered = filtered.filter(e => e.date >= lastMonthStart && e.date <= lastMonthEnd)
+  else if (periodFilter === 'custom' && customFrom && customTo) filtered = filtered.filter(e => e.date >= customFrom && e.date <= customTo)
 
   // Type filter
   if (typeFilter !== 'all') filtered = filtered.filter(e => e.type === typeFilter)
@@ -192,6 +196,13 @@ export function useFinancesData() {
     setTypeFilter,
     periodFilter,
     setPeriodFilter,
+    customFrom,
+    customTo,
+    setCustomRange: (from: string, to: string) => {
+      setCustomFrom(from)
+      setCustomTo(to)
+      setPeriodFilter('custom')
+    },
     search,
     setSearch,
     curRevenue,

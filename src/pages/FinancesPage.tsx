@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import {
   Plus,
   Download,
   Search,
   TrendingUp,
   TrendingDown,
+  Calendar,
 } from 'lucide-react'
 import {
   BarChart,
@@ -52,10 +53,23 @@ const TYPE_TABS: { label: string; value: TypeFilter }[] = [
 
 const PERIOD_TABS: { label: string; value: PeriodFilter }[] = [
   { label: 'Ce mois', value: 'month' },
-  { label: '30 jours', value: '30d' },
-  { label: '3 mois', value: '3m' },
-  { label: 'Tout', value: 'all' },
+  { label: '30 derniers jours', value: '30d' },
+  { label: 'Mois dernier', value: 'last_month' },
+  { label: 'Depuis le début', value: 'all' },
 ]
+
+function getPeriodSubtitle(filter: PeriodFilter, customFrom: string, customTo: string): string {
+  switch (filter) {
+    case 'month': return 'Ce mois'
+    case '30d': return '30 derniers jours'
+    case 'last_month': return 'Mois dernier'
+    case 'all': return 'Depuis le début'
+    case 'custom': {
+      const fmt = (d: string) => new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
+      return customFrom && customTo ? `${fmt(customFrom)} — ${fmt(customTo)}` : 'Période personnalisée'
+    }
+  }
+}
 
 const PAYMENT_LABELS: Record<string, string> = {
   carte: 'Carte',
@@ -74,9 +88,23 @@ const CAT_COLORS: Record<string, string> = {
 export default function FinancesPage() {
   const data = useFinancesData()
   const [showModal, setShowModal] = useState(false)
+  const [showCustomDates, setShowCustomDates] = useState(false)
+  const [tempFrom, setTempFrom] = useState('')
+  const [tempTo, setTempTo] = useState('')
+  const customDropdownRef = useRef<HTMLDivElement>(null)
 
-  const now = new Date()
-  const monthLabel = `${MONTHS_FR[now.getMonth()]} ${now.getFullYear()}`
+  useEffect(() => {
+    if (!showCustomDates) return
+    const handler = (e: MouseEvent) => {
+      if (customDropdownRef.current && !customDropdownRef.current.contains(e.target as Node)) {
+        setShowCustomDates(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showCustomDates])
+
+  const periodSubtitle = getPeriodSubtitle(data.periodFilter, data.customFrom, data.customTo)
 
   const handleExport = () => {
     const rows = data.allFilteredEntries.map(e => ({
@@ -110,7 +138,7 @@ export default function FinancesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-navy">Finances</h1>
-          <p className="text-text-secondary mt-1">Ta compta simplifiée — {monthLabel}</p>
+          <p className="text-text-secondary mt-1">Ta compta simplifiée — {periodSubtitle}</p>
         </div>
         <div className="flex gap-2">
           <button
@@ -180,7 +208,7 @@ export default function FinancesPage() {
               {PERIOD_TABS.map(p => (
                 <button
                   key={p.value}
-                  onClick={() => data.setPeriodFilter(p.value)}
+                  onClick={() => { data.setPeriodFilter(p.value); setShowCustomDates(false) }}
                   className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
                     data.periodFilter === p.value
                       ? 'bg-navy text-white'
@@ -190,6 +218,68 @@ export default function FinancesPage() {
                   {p.label}
                 </button>
               ))}
+              <div className="relative" ref={customDropdownRef}>
+                <button
+                  onClick={() => setShowCustomDates(!showCustomDates)}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors flex items-center gap-1 ${
+                    data.periodFilter === 'custom'
+                      ? 'bg-navy text-white'
+                      : 'text-text-muted hover:bg-gray-100'
+                  }`}
+                >
+                  <Calendar size={12} />
+                  Personnalisée
+                </button>
+                {showCustomDates && (
+                  <div className="absolute right-0 top-full mt-2 bg-white rounded-xl border border-border shadow-lg p-4 z-50 w-72">
+                    <div className="space-y-2 mb-4">
+                      <div>
+                        <label className="block text-xs text-text-muted mb-1">Date de début</label>
+                        <input
+                          type="date"
+                          value={tempFrom}
+                          onChange={e => setTempFrom(e.target.value)}
+                          className="w-full px-3 py-2 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-text-muted mb-1">Date de fin</label>
+                        <input
+                          type="date"
+                          value={tempTo}
+                          onChange={e => setTempTo(e.target.value)}
+                          className="w-full px-3 py-2 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          setTempFrom('')
+                          setTempTo('')
+                          data.setPeriodFilter('month')
+                          setShowCustomDates(false)
+                        }}
+                        className="flex-1 px-3 py-2 text-xs font-medium rounded-lg border border-border text-text-secondary hover:bg-gray-50 transition-colors"
+                      >
+                        Effacer
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (tempFrom && tempTo && tempFrom <= tempTo) {
+                            data.setCustomRange(tempFrom, tempTo)
+                            setShowCustomDates(false)
+                          }
+                        }}
+                        disabled={!tempFrom || !tempTo || tempFrom > tempTo}
+                        className="flex-1 px-3 py-2 text-xs font-medium rounded-lg bg-accent text-white hover:bg-accent/90 transition-colors disabled:opacity-50"
+                      >
+                        Appliquer
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
             {/* Search */}
             <div className="relative">
