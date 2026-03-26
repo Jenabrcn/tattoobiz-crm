@@ -15,7 +15,7 @@ export interface FinanceEntry {
   created_at: string
 }
 
-export type TypeFilter = 'all' | 'revenu' | 'depense' | 'arrhes'
+export type TypeFilter = 'all' | 'revenu' | 'depense'
 export type PeriodFilter = 'month' | '30d' | 'last_month' | 'all' | 'custom'
 
 interface MonthBar {
@@ -193,7 +193,8 @@ export function useFinancesData() {
 
   // --- Type + search filter for table ---
   let filtered = periodFiltered
-  if (typeFilter !== 'all') filtered = filtered.filter(e => e.type === typeFilter)
+  if (typeFilter === 'revenu') filtered = filtered.filter(e => e.type === 'revenu' || e.type === 'arrhes')
+  else if (typeFilter === 'depense') filtered = filtered.filter(e => e.type === 'depense')
   if (search.trim()) {
     const q = search.toLowerCase()
     filtered = filtered.filter(e =>

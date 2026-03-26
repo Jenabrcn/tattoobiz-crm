@@ -43,7 +43,6 @@ const TYPE_TABS: { label: string; value: TypeFilter }[] = [
   { label: 'Tout', value: 'all' },
   { label: 'Revenus', value: 'revenu' },
   { label: 'Dépenses', value: 'depense' },
-  { label: 'Arrhes', value: 'arrhes' },
 ]
 
 const PERIOD_TABS: { label: string; value: PeriodFilter }[] = [
@@ -468,19 +467,11 @@ function StatCard({
 }
 
 function TypeBadge({ type }: { type: 'revenu' | 'depense' | 'arrhes' }) {
-  const styles = {
-    revenu: 'bg-green/10 text-green',
-    depense: 'bg-red/10 text-red',
-    arrhes: 'bg-accent-light text-accent',
+  if (type === 'depense') {
+    return <span className="text-xs font-medium px-2.5 py-1 rounded-lg bg-red/10 text-red">Dépense</span>
   }
-  const labels = {
-    revenu: 'Revenu',
-    depense: 'Dépense',
-    arrhes: 'Arrhes',
+  if (type === 'arrhes') {
+    return <span className="text-xs font-medium px-2.5 py-1 rounded-lg bg-green/10 text-green">Revenu — Arrhes</span>
   }
-  return (
-    <span className={`text-xs font-medium px-2.5 py-1 rounded-lg ${styles[type]}`}>
-      {labels[type]}
-    </span>
-  )
+  return <span className="text-xs font-medium px-2.5 py-1 rounded-lg bg-green/10 text-green">Revenu — Solde</span>
 }
