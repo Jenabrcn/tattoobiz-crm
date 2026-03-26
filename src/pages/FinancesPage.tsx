@@ -593,7 +593,7 @@ function EditFinanceModal({ entry, onClose, onUpdated }: { entry: FinanceEntry; 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setSaving(true)
-    const dbType = form.type === 'revenu' && form.subtype === 'arrhes' ? 'arrhes' : form.type
+    const dbType: 'revenu' | 'depense' | 'arrhes' = form.type === 'revenu' && form.subtype === 'arrhes' ? 'arrhes' : form.type as 'revenu' | 'depense'
     await supabase.from('finances').update({
       type: dbType,
       amount: parseFloat(form.amount),

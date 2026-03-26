@@ -70,7 +70,7 @@ export default function AddFinanceModal({ open, onClose, onCreated }: Props) {
     if (!user || !form.amount || !form.date) return
     setSaving(true)
 
-    const dbType = form.type === 'revenu' && form.subtype === 'arrhes' ? 'arrhes' : form.type
+    const dbType: 'revenu' | 'depense' | 'arrhes' = form.type === 'revenu' && form.subtype === 'arrhes' ? 'arrhes' : form.type as 'revenu' | 'depense'
     const { error } = await supabase.from('finances').insert({
       user_id: user.id,
       type: dbType,
