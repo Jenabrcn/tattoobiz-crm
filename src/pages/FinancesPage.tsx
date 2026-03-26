@@ -13,6 +13,8 @@ import {
   Eye,
   FileText,
   Upload,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
 import {
   BarChart,
@@ -95,6 +97,7 @@ export default function FinancesPage() {
   const [editEntry, setEditEntry] = useState<FinanceEntry | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [page, setPage] = useState(1)
   const [showCustomDates, setShowCustomDates] = useState(false)
   const [tempFrom, setTempFrom] = useState('')
   const [tempTo, setTempTo] = useState('')
@@ -311,7 +314,12 @@ export default function FinancesPage() {
         <div className="bg-white rounded-xl border border-border p-12 text-center">
           <p className="text-text-muted">Aucune entrée pour cette période.</p>
         </div>
-      ) : (
+      ) : (() => {
+        const PAGE_SIZE = 10
+        const totalPages = Math.max(1, Math.ceil(data.entries.length / PAGE_SIZE))
+        const safePage = Math.min(page, totalPages)
+        const paginated = data.entries.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
+        return (
         <div className="bg-white rounded-xl border border-border overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -319,15 +327,16 @@ export default function FinancesPage() {
                 <tr className="border-b border-border">
                   <th className="text-left text-xs font-medium text-text-muted px-5 py-3.5">Date</th>
                   <th className="text-left text-xs font-medium text-text-muted px-5 py-3.5">Description</th>
-                  <th className="text-left text-xs font-medium text-text-muted px-5 py-3.5">Client</th>
+                  <th className="text-left text-xs font-medium text-text-muted px-5 py-3.5">Client / Fournisseur</th>
                   <th className="text-left text-xs font-medium text-text-muted px-5 py-3.5">Paiement</th>
                   <th className="text-right text-xs font-medium text-text-muted px-5 py-3.5">Montant</th>
                   <th className="text-left text-xs font-medium text-text-muted px-5 py-3.5">Type</th>
+                  <th className="text-center text-xs font-medium text-text-muted px-3 py-3.5">Facture</th>
                   <th className="text-right text-xs font-medium text-text-muted px-5 py-3.5">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {data.entries.map(entry => (
+                {paginated.map(entry => (
                   <tr
                     key={entry.id}
                     className="border-b border-border last:border-b-0 hover:bg-gray-50/50 transition-colors"
@@ -342,6 +351,8 @@ export default function FinancesPage() {
                         >
                           {entry.client_name}
                         </button>
+                      ) : entry.supplier ? (
+                        <span className="text-text-secondary">{entry.supplier}</span>
                       ) : (
                         <span className="text-text-secondary">—</span>
                       )}
@@ -356,6 +367,14 @@ export default function FinancesPage() {
                     </td>
                     <td className="px-5 py-3.5">
                       <TypeBadge type={entry.type} />
+                    </td>
+                    <td className="px-3 py-3.5 text-center">
+                      {entry.invoice_url && (
+                        <a href={entry.invoice_url} target="_blank" rel="noopener noreferrer"
+                          className="inline-flex text-text-muted hover:text-accent transition-colors" title="Voir la facture">
+                          <FileText size={16} />
+                        </a>
+                      )}
                     </td>
                     <td className="px-5 py-3.5">
                       <div className="flex items-center justify-end gap-1">
@@ -380,8 +399,32 @@ export default function FinancesPage() {
               </tbody>
             </table>
           </div>
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-5 py-3.5 border-t border-border">
+              <p className="text-sm text-text-muted">
+                Page {safePage} sur {totalPages} ({data.entries.length} résultats)
+              </p>
+              <div className="flex gap-1">
+                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage === 1}
+                  className="p-2 rounded-lg text-text-muted hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                  <ChevronLeft size={16} />
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+                  <button key={p} onClick={() => setPage(p)}
+                    className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${p === safePage ? 'bg-accent text-white' : 'text-text-secondary hover:bg-gray-100'}`}>
+                    {p}
+                  </button>
+                ))}
+                <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}
+                  className="p-2 rounded-lg text-text-muted hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
-      )}
+        )
+      })()}
 
       {/* Charts section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -513,6 +556,7 @@ export default function FinancesPage() {
                   </button>
                 </div>
               )}
+              {selectedEntry.supplier && <DetailRow label="Fournisseur" value={selectedEntry.supplier} />}
               {selectedEntry.category && <DetailRow label="Catégorie" value={selectedEntry.category} />}
               {selectedEntry.description && (
                 <div className="py-2 border-b border-border">
@@ -645,6 +689,7 @@ function EditFinanceModal({ entry, onClose, onUpdated }: { entry: FinanceEntry; 
     date: entry.date,
     payment_method: entry.payment_method,
     category: entry.category || '',
+    supplier: entry.supplier || '',
   })
   const set = (key: string, value: string) => setForm(prev => ({ ...prev, [key]: value }))
 
@@ -671,6 +716,7 @@ function EditFinanceModal({ entry, onClose, onUpdated }: { entry: FinanceEntry; 
       date: form.date,
       payment_method: form.payment_method,
       category: form.type === 'depense' ? (form.category || 'Divers') : null,
+      supplier: form.type === 'depense' ? (form.supplier.trim() || null) : null,
       invoice_url: invoiceUrl,
     }).eq('id', entry.id)
     setSaving(false)
@@ -752,6 +798,14 @@ function EditFinanceModal({ entry, onClose, onUpdated }: { entry: FinanceEntry; 
               </div>
             )}
           </div>
+          {form.type === 'depense' && (
+            <div>
+              <label className="block text-sm font-medium text-navy mb-1">Fournisseur (optionnel)</label>
+              <input value={form.supplier} onChange={e => set('supplier', e.target.value)}
+                placeholder="Ex: Amazon, Encre Shop, Propriétaire..."
+                className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent" />
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium text-navy mb-1">Facture / justificatif (optionnel)</label>
             {entry.invoice_url && !invoiceFile && (
