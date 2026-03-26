@@ -60,7 +60,7 @@ export function useFinancesData() {
   const { user } = useAuth()
   const [loading, setLoading] = useState(true)
   const [allEntries, setAllEntries] = useState<FinanceEntry[]>([])
-  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all')
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('revenu')
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>('month')
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
