@@ -654,7 +654,7 @@ function EditFinanceModal({ entry, onClose, onUpdated }: { entry: FinanceEntry; 
     const dbType: 'revenu' | 'depense' | 'arrhes' = form.type === 'revenu' && form.subtype === 'arrhes' ? 'arrhes' : form.type as 'revenu' | 'depense'
 
     let invoiceUrl = entry.invoice_url
-    if (invoiceFile && form.type !== 'depense') {
+    if (invoiceFile) {
       const ext = invoiceFile.name.split('.').pop()
       const path = `${entry.id}/${Date.now()}.${ext}`
       const { error: uploadErr } = await supabase.storage.from('invoices').upload(path, invoiceFile)
@@ -671,7 +671,7 @@ function EditFinanceModal({ entry, onClose, onUpdated }: { entry: FinanceEntry; 
       date: form.date,
       payment_method: form.payment_method,
       category: form.type === 'depense' ? (form.category || 'Divers') : null,
-      invoice_url: form.type === 'depense' ? null : invoiceUrl,
+      invoice_url: invoiceUrl,
     }).eq('id', entry.id)
     setSaving(false)
     onUpdated()
@@ -752,24 +752,22 @@ function EditFinanceModal({ entry, onClose, onUpdated }: { entry: FinanceEntry; 
               </div>
             )}
           </div>
-          {form.type !== 'depense' && (
-            <div>
-              <label className="block text-sm font-medium text-navy mb-1">Facture (optionnel)</label>
-              {entry.invoice_url && !invoiceFile && (
-                <a href={entry.invoice_url} target="_blank" rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-xs text-accent hover:underline mb-2">
-                  <FileText size={14} />
-                  Facture existante
-                </a>
-              )}
-              <label className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-dashed border-border text-sm text-text-muted cursor-pointer hover:border-accent hover:bg-accent-light/50 transition-colors">
-                <Upload size={16} />
-                {invoiceFile ? invoiceFile.name : 'Remplacer ou ajouter un fichier'}
-                <input type="file" accept=".pdf,image/*" className="hidden"
-                  onChange={e => setInvoiceFile(e.target.files?.[0] || null)} />
-              </label>
-            </div>
-          )}
+          <div>
+            <label className="block text-sm font-medium text-navy mb-1">Facture / justificatif (optionnel)</label>
+            {entry.invoice_url && !invoiceFile && (
+              <a href={entry.invoice_url} target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs text-accent hover:underline mb-2">
+                <FileText size={14} />
+                Facture existante
+              </a>
+            )}
+            <label className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-dashed border-border text-sm text-text-muted cursor-pointer hover:border-accent hover:bg-accent-light/50 transition-colors">
+              <Upload size={16} />
+              {invoiceFile ? invoiceFile.name : 'Remplacer ou ajouter un fichier'}
+              <input type="file" accept=".pdf,image/*" className="hidden"
+                onChange={e => setInvoiceFile(e.target.files?.[0] || null)} />
+            </label>
+          </div>
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose}
               className="flex-1 px-4 py-2.5 text-sm font-medium rounded-xl border border-border text-text-secondary hover:bg-gray-50 transition-colors">
