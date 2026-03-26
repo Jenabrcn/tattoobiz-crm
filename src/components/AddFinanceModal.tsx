@@ -31,7 +31,8 @@ export default function AddFinanceModal({ open, onClose, onCreated }: Props) {
   const [showDropdown, setShowDropdown] = useState(false)
   const [selectedClient, setSelectedClient] = useState<ClientOption | null>(null)
   const [form, setForm] = useState({
-    type: 'revenu' as 'revenu' | 'depense' | 'arrhes',
+    type: 'revenu' as 'revenu' | 'depense',
+    subtype: 'solde' as 'arrhes' | 'solde',
     amount: '',
     description: '',
     date: new Date().toISOString().split('T')[0],
@@ -69,9 +70,10 @@ export default function AddFinanceModal({ open, onClose, onCreated }: Props) {
     if (!user || !form.amount || !form.date) return
     setSaving(true)
 
+    const dbType = form.type === 'revenu' && form.subtype === 'arrhes' ? 'arrhes' : form.type
     const { error } = await supabase.from('finances').insert({
       user_id: user.id,
-      type: form.type,
+      type: dbType,
       amount: parseFloat(form.amount),
       description: form.description.trim() || null,
       date: form.date,
@@ -84,6 +86,7 @@ export default function AddFinanceModal({ open, onClose, onCreated }: Props) {
     if (!error) {
       setForm({
         type: 'revenu',
+        subtype: 'solde',
         amount: '',
         description: '',
         date: new Date().toISOString().split('T')[0],
@@ -113,24 +116,53 @@ export default function AddFinanceModal({ open, onClose, onCreated }: Props) {
           <div>
             <label className="block text-sm font-medium text-navy mb-2">Type *</label>
             <div className="flex gap-2">
-              {([
-                { value: 'revenu', label: 'Revenu', color: 'bg-green/10 text-green border-green/30' },
-                { value: 'depense', label: 'Dépense', color: 'bg-red/10 text-red border-red/30' },
-                { value: 'arrhes', label: 'Arrhes', color: 'bg-accent-light text-accent border-accent/30' },
-              ] as const).map(t => (
-                <button
-                  key={t.value}
-                  type="button"
-                  onClick={() => set('type', t.value)}
-                  className={`flex-1 px-3 py-2.5 text-sm font-medium rounded-xl border transition-colors ${
-                    form.type === t.value ? t.color : 'border-border text-text-muted hover:bg-gray-50'
-                  }`}
-                >
-                  {t.label}
-                </button>
-              ))}
+              <button
+                type="button"
+                onClick={() => set('type', 'revenu')}
+                className={`flex-1 px-3 py-2.5 text-sm font-medium rounded-xl border transition-colors ${
+                  form.type === 'revenu' ? 'bg-green/10 text-green border-green/30' : 'border-border text-text-muted hover:bg-gray-50'
+                }`}
+              >
+                Revenu
+              </button>
+              <button
+                type="button"
+                onClick={() => set('type', 'depense')}
+                className={`flex-1 px-3 py-2.5 text-sm font-medium rounded-xl border transition-colors ${
+                  form.type === 'depense' ? 'bg-red/10 text-red border-red/30' : 'border-border text-text-muted hover:bg-gray-50'
+                }`}
+              >
+                Dépense
+              </button>
             </div>
           </div>
+
+          {/* Sub-type for revenue */}
+          {form.type === 'revenu' && (
+            <div>
+              <label className="block text-sm font-medium text-navy mb-2">Sous-type</label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => set('subtype', 'solde')}
+                  className={`flex-1 px-3 py-2.5 text-sm font-medium rounded-xl border transition-colors ${
+                    form.subtype === 'solde' ? 'bg-green/10 text-green border-green/30' : 'border-border text-text-muted hover:bg-gray-50'
+                  }`}
+                >
+                  Solde
+                </button>
+                <button
+                  type="button"
+                  onClick={() => set('subtype', 'arrhes')}
+                  className={`flex-1 px-3 py-2.5 text-sm font-medium rounded-xl border transition-colors ${
+                    form.subtype === 'arrhes' ? 'bg-accent-light text-accent border-accent/30' : 'border-border text-text-muted hover:bg-gray-50'
+                  }`}
+                >
+                  Arrhes
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <div>
