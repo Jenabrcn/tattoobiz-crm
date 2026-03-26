@@ -6,6 +6,9 @@ import {
   TrendingUp,
   TrendingDown,
   Calendar,
+  X,
+  Pencil,
+  Trash2,
 } from 'lucide-react'
 import {
   BarChart,
@@ -16,8 +19,9 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts'
+import { supabase } from '../lib/supabase'
 import { useFinancesData } from '../hooks/useFinancesData'
-import type { TypeFilter, PeriodFilter } from '../hooks/useFinancesData'
+import type { TypeFilter, PeriodFilter, FinanceEntry } from '../hooks/useFinancesData'
 import AddFinanceModal from '../components/AddFinanceModal'
 
 function formatCurrency(n: number) {
@@ -82,6 +86,10 @@ const CAT_COLORS: Record<string, string> = {
 export default function FinancesPage() {
   const data = useFinancesData()
   const [showModal, setShowModal] = useState(false)
+  const [selectedEntry, setSelectedEntry] = useState<FinanceEntry | null>(null)
+  const [editEntry, setEditEntry] = useState<FinanceEntry | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
   const [showCustomDates, setShowCustomDates] = useState(false)
   const [tempFrom, setTempFrom] = useState('')
   const [tempTo, setTempTo] = useState('')
@@ -314,7 +322,11 @@ export default function FinancesPage() {
               </thead>
               <tbody>
                 {data.entries.map(entry => (
-                  <tr key={entry.id} className="border-b border-border last:border-b-0 hover:bg-gray-50/50 transition-colors">
+                  <tr
+                    key={entry.id}
+                    className="border-b border-border last:border-b-0 hover:bg-gray-50/50 cursor-pointer transition-colors"
+                    onClick={() => { setSelectedEntry(entry); setConfirmDeleteId(null) }}
+                  >
                     <td className="px-5 py-3.5 text-sm text-text-secondary">{formatDateFr(entry.date)}</td>
                     <td className="px-5 py-3.5 text-sm text-navy">{entry.description || '—'}</td>
                     <td className="px-5 py-3.5 text-sm text-text-secondary">{entry.client_name || '—'}</td>
@@ -322,7 +334,7 @@ export default function FinancesPage() {
                       {PAYMENT_LABELS[entry.payment_method] || entry.payment_method}
                     </td>
                     <td className={`px-5 py-3.5 text-sm font-medium text-right ${
-                      entry.type === 'depense' ? 'text-red' : 'text-green'
+                      entry.type === 'depense' ? 'text-red' : entry.type === 'arrhes' ? 'text-amber-600' : 'text-green'
                     }`}>
                       {entry.type === 'depense' ? '-' : '+'}{formatCurrency(entry.amount)}
                     </td>
@@ -431,12 +443,93 @@ export default function FinancesPage() {
         </div>
       </div>
 
-      {/* Modal */}
+      {/* Add Modal */}
       <AddFinanceModal
         open={showModal}
         onClose={() => setShowModal(false)}
         onCreated={data.refresh}
       />
+
+      {/* Detail popup */}
+      {selectedEntry && !editEntry && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setSelectedEntry(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-md mx-4 p-6" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-navy">Détails de l'entrée</h2>
+              <button onClick={() => setSelectedEntry(null)} className="p-1 rounded-lg hover:bg-gray-100 text-text-muted">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="space-y-3 mb-6">
+              <DetailRow label="Date" value={formatDateFr(selectedEntry.date)} />
+              <DetailRow label="Type" value={
+                selectedEntry.type === 'depense' ? 'Dépense' :
+                selectedEntry.type === 'arrhes' ? 'Revenu — Arrhes' : 'Revenu — Solde'
+              } />
+              <DetailRow label="Montant" value={`${selectedEntry.type === 'depense' ? '-' : '+'}${formatCurrency(selectedEntry.amount)}`} />
+              <DetailRow label="Paiement" value={PAYMENT_LABELS[selectedEntry.payment_method] || selectedEntry.payment_method} />
+              {selectedEntry.client_name && <DetailRow label="Client" value={selectedEntry.client_name} />}
+              {selectedEntry.category && <DetailRow label="Catégorie" value={selectedEntry.category} />}
+              {selectedEntry.description && (
+                <div className="py-2">
+                  <span className="text-sm text-text-secondary">Description</span>
+                  <p className="text-sm text-navy mt-1">{selectedEntry.description}</p>
+                </div>
+              )}
+            </div>
+            {confirmDeleteId === selectedEntry.id ? (
+              <div className="bg-red/5 border border-red/20 rounded-xl p-4">
+                <p className="text-sm text-navy mb-3">Es-tu sûr de vouloir supprimer cette entrée ?</p>
+                <div className="flex gap-2 justify-end">
+                  <button onClick={() => setConfirmDeleteId(null)} className="px-4 py-2 text-sm font-medium rounded-xl border border-border text-text-secondary hover:bg-gray-50 transition-colors">
+                    Annuler
+                  </button>
+                  <button
+                    onClick={async () => {
+                      setDeleting(true)
+                      await supabase.from('finances').delete().eq('id', selectedEntry.id)
+                      setDeleting(false)
+                      setSelectedEntry(null)
+                      setConfirmDeleteId(null)
+                      data.refresh()
+                    }}
+                    disabled={deleting}
+                    className="px-4 py-2 text-sm font-medium rounded-xl bg-red text-white hover:bg-red/90 transition-colors disabled:opacity-50"
+                  >
+                    {deleting ? 'Suppression...' : 'Supprimer'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex gap-3">
+                <button
+                  onClick={() => { setEditEntry(selectedEntry); setSelectedEntry(null) }}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl border border-border text-text-secondary hover:bg-gray-50 transition-colors"
+                >
+                  <Pencil size={16} />
+                  Modifier
+                </button>
+                <button
+                  onClick={() => setConfirmDeleteId(selectedEntry.id)}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl border border-red/30 text-red hover:bg-red/5 transition-colors"
+                >
+                  <Trash2 size={16} />
+                  Supprimer
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Edit modal */}
+      {editEntry && (
+        <EditFinanceModal
+          entry={editEntry}
+          onClose={() => setEditEntry(null)}
+          onUpdated={() => { setEditEntry(null); data.refresh() }}
+        />
+      )}
     </div>
   )
 }
@@ -466,12 +559,150 @@ function StatCard({
   )
 }
 
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between items-center py-2 border-b border-border">
+      <span className="text-sm text-text-secondary">{label}</span>
+      <span className="text-sm font-medium text-navy">{value}</span>
+    </div>
+  )
+}
+
+const EDIT_PAYMENT_METHODS = [
+  { value: 'carte', label: 'Carte' },
+  { value: 'especes', label: 'Espèces' },
+  { value: 'virement', label: 'Virement' },
+]
+
+const EDIT_EXPENSE_CATEGORIES = ['Loyer', 'Matériel', 'Pub', 'Abonnements', 'Divers']
+
+function EditFinanceModal({ entry, onClose, onUpdated }: { entry: FinanceEntry; onClose: () => void; onUpdated: () => void }) {
+  const isRevenue = entry.type === 'revenu' || entry.type === 'arrhes'
+  const [saving, setSaving] = useState(false)
+  const [form, setForm] = useState({
+    type: isRevenue ? 'revenu' : 'depense',
+    subtype: entry.type === 'arrhes' ? 'arrhes' : 'solde',
+    amount: String(entry.amount),
+    description: entry.description || '',
+    date: entry.date,
+    payment_method: entry.payment_method,
+    category: entry.category || '',
+  })
+  const set = (key: string, value: string) => setForm(prev => ({ ...prev, [key]: value }))
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSaving(true)
+    const dbType = form.type === 'revenu' && form.subtype === 'arrhes' ? 'arrhes' : form.type
+    await supabase.from('finances').update({
+      type: dbType,
+      amount: parseFloat(form.amount),
+      description: form.description.trim() || null,
+      date: form.date,
+      payment_method: form.payment_method,
+      category: form.type === 'depense' ? (form.category || 'Divers') : null,
+    }).eq('id', entry.id)
+    setSaving(false)
+    onUpdated()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="bg-white rounded-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-6 border-b border-border">
+          <h2 className="text-lg font-bold text-navy">Modifier l'entrée</h2>
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-gray-100 text-text-muted">
+            <X size={20} />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-navy mb-2">Type *</label>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => set('type', 'revenu')}
+                className={`flex-1 px-3 py-2.5 text-sm font-medium rounded-xl border transition-colors ${form.type === 'revenu' ? 'bg-green/10 text-green border-green/30' : 'border-border text-text-muted hover:bg-gray-50'}`}>
+                Revenu
+              </button>
+              <button type="button" onClick={() => set('type', 'depense')}
+                className={`flex-1 px-3 py-2.5 text-sm font-medium rounded-xl border transition-colors ${form.type === 'depense' ? 'bg-red/10 text-red border-red/30' : 'border-border text-text-muted hover:bg-gray-50'}`}>
+                Dépense
+              </button>
+            </div>
+          </div>
+          {form.type === 'revenu' && (
+            <div>
+              <label className="block text-sm font-medium text-navy mb-2">Sous-type</label>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => set('subtype', 'solde')}
+                  className={`flex-1 px-3 py-2.5 text-sm font-medium rounded-xl border transition-colors ${form.subtype === 'solde' ? 'bg-green/10 text-green border-green/30' : 'border-border text-text-muted hover:bg-gray-50'}`}>
+                  Solde
+                </button>
+                <button type="button" onClick={() => set('subtype', 'arrhes')}
+                  className={`flex-1 px-3 py-2.5 text-sm font-medium rounded-xl border transition-colors ${form.subtype === 'arrhes' ? 'bg-accent-light text-accent border-accent/30' : 'border-border text-text-muted hover:bg-gray-50'}`}>
+                  Arrhes
+                </button>
+              </div>
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-navy mb-1">Montant (€) *</label>
+              <input required type="number" min="0" step="0.01" value={form.amount} onChange={e => set('amount', e.target.value)}
+                className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-navy mb-1">Date *</label>
+              <input required type="date" value={form.date} onChange={e => set('date', e.target.value)}
+                className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-navy mb-1">Description</label>
+            <input value={form.description} onChange={e => set('description', e.target.value)}
+              placeholder={form.type === 'depense' ? 'Ex: Loyer studio, Encre...' : form.subtype === 'arrhes' ? 'Ex: Acompte tatouage bras...' : 'Ex: Reste tatouage bras...'}
+              className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent" />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-navy mb-1">Mode de paiement</label>
+              <select value={form.payment_method} onChange={e => set('payment_method', e.target.value)}
+                className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent bg-white">
+                {EDIT_PAYMENT_METHODS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+              </select>
+            </div>
+            {form.type === 'depense' && (
+              <div>
+                <label className="block text-sm font-medium text-navy mb-1">Catégorie</label>
+                <select value={form.category} onChange={e => set('category', e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent bg-white">
+                  <option value="">Sélectionner...</option>
+                  {EDIT_EXPENSE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+            )}
+          </div>
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={onClose}
+              className="flex-1 px-4 py-2.5 text-sm font-medium rounded-xl border border-border text-text-secondary hover:bg-gray-50 transition-colors">
+              Annuler
+            </button>
+            <button type="submit" disabled={saving}
+              className="flex-1 px-4 py-2.5 text-sm font-medium rounded-xl bg-accent text-white hover:bg-accent/90 transition-colors disabled:opacity-50">
+              {saving ? 'Enregistrement...' : 'Enregistrer'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 function TypeBadge({ type }: { type: 'revenu' | 'depense' | 'arrhes' }) {
   if (type === 'depense') {
     return <span className="text-xs font-medium px-2.5 py-1 rounded-lg bg-red/10 text-red">Dépense</span>
   }
   if (type === 'arrhes') {
-    return <span className="text-xs font-medium px-2.5 py-1 rounded-lg bg-green/10 text-green">Revenu — Arrhes</span>
+    return <span className="text-xs font-medium px-2.5 py-1 rounded-lg bg-amber-50 text-amber-600">Revenu — Arrhes</span>
   }
   return <span className="text-xs font-medium px-2.5 py-1 rounded-lg bg-green/10 text-green">Revenu — Solde</span>
 }
