@@ -14,12 +14,12 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
 const navItems = [
-  { to: '/onboarding', label: 'Démarrer ici', icon: GraduationCap },
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/clients', label: 'Clients', icon: Users },
   { to: '/agenda', label: 'Agenda', icon: CalendarDays },
   { to: '/finances', label: 'Finances', icon: DollarSign },
   { to: '/settings', label: 'Réglages', icon: Settings },
+  { to: '/onboarding', label: 'Aide', icon: GraduationCap },
 ]
 
 export function AppLayout() {

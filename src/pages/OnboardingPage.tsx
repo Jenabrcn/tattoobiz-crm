@@ -2,6 +2,16 @@ import { Play } from 'lucide-react'
 
 const tutorials = [
   {
+    title: 'Les réglages',
+    description: 'Personnalise ton espace Tatboard',
+    duration: '2 min',
+  },
+  {
+    title: 'Ton dashboard',
+    description: 'Comprends tes stats en un coup d\'oeil',
+    duration: '2 min',
+  },
+  {
     title: 'Ton premier client',
     description: 'Apprends à ajouter et gérer tes fiches clients',
     duration: '3 min',
@@ -15,16 +25,6 @@ const tutorials = [
     title: 'Suivre tes finances',
     description: 'Rentre tes revenus et dépenses facilement',
     duration: '3 min',
-  },
-  {
-    title: 'Ton dashboard',
-    description: 'Comprends tes stats en un coup d\'oeil',
-    duration: '2 min',
-  },
-  {
-    title: 'Les réglages',
-    description: 'Personnalise ton espace Tatboard',
-    duration: '2 min',
   },
 ]
 
