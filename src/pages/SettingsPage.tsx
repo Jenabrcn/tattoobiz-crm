@@ -354,6 +354,26 @@ export default function SettingsPage() {
             >
               Simuler J-2 avant fin
             </button>
+            <button
+              onClick={async () => {
+                await supabase.from('users').update({ plan: 'expired' }).eq('id', user.id)
+                refreshProfile()
+                window.location.reload()
+              }}
+              className="px-4 py-2 text-sm font-medium rounded-xl bg-red/80 text-white hover:bg-red transition-colors"
+            >
+              Simuler abo expiré
+            </button>
+            <button
+              onClick={async () => {
+                await supabase.from('users').update({ plan: 'pro' }).eq('id', user.id)
+                refreshProfile()
+                window.location.reload()
+              }}
+              className="px-4 py-2 text-sm font-medium rounded-xl bg-blue-500 text-white hover:bg-blue-600 transition-colors"
+            >
+              Simuler Pro
+            </button>
           </div>
         </div>
       )}
