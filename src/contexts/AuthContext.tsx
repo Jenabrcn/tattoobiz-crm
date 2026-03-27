@@ -61,7 +61,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             first_name: meta.first_name || null,
             last_name: meta.last_name || null,
             studio_name: meta.studio_name || null,
-          }, { onConflict: 'id', ignoreDuplicates: false }).then(() => {
+          }, { onConflict: 'id', ignoreDuplicates: true }).then(() => {
             // Silently ignore result — profile will be created on next sign-in if this fails
           })
         }
