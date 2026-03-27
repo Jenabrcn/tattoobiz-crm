@@ -1,4 +1,4 @@
-import { Outlet, NavLink, useNavigate } from 'react-router-dom'
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import {
   LayoutDashboard,
@@ -7,6 +7,7 @@ import {
   DollarSign,
   Settings,
   LogOut,
+  Lock,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
@@ -20,8 +21,9 @@ const navItems = [
 ]
 
 export function AppLayout() {
-  const { user, signOut, profileVersion } = useAuth()
+  const { user, signOut, profileVersion, subscription } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const [profile, setProfile] = useState<{ first_name: string | null; last_name: string | null; studio_name: string | null } | null>(null)
 
   useEffect(() => {
@@ -46,11 +48,20 @@ export function AppLayout() {
     ? `${(profile.first_name || '')[0] || ''}${(profile.last_name || '')[0] || ''}`.toUpperCase() || 'U'
     : 'U'
 
+  const isBlocked = subscription.plan === 'trial' && subscription.isTrialExpired
+  const isOnSettings = location.pathname === '/settings'
+
+  // Plan badge
+  const planBadge = subscription.plan === 'pro'
+    ? <span className="text-[10px] font-semibold bg-green/10 text-green px-1.5 py-0.5 rounded">Pro</span>
+    : subscription.isTrialExpired
+    ? <span className="text-[10px] font-semibold bg-red/10 text-red px-1.5 py-0.5 rounded">Expiré</span>
+    : <span className="text-[10px] font-semibold bg-accent/10 text-accent px-1.5 py-0.5 rounded">Essai</span>
+
   return (
     <div className="flex min-h-screen bg-background">
-      {/* Sidebar - White */}
+      {/* Sidebar */}
       <aside className="w-64 bg-white border-r border-border flex flex-col shrink-0">
-        {/* Logo */}
         <div className="p-6 pb-8">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 bg-accent rounded-lg flex items-center justify-center overflow-hidden p-1">
@@ -62,27 +73,33 @@ export function AppLayout() {
           </div>
         </div>
 
-        {/* Navigation */}
         <nav className="flex-1 px-3 space-y-1">
-          {navItems.map(({ to, label, icon: Icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-                  isActive
-                    ? 'bg-accent-light text-accent'
-                    : 'text-text-secondary hover:bg-gray-50 hover:text-navy'
-                }`
-              }
-            >
-              <Icon size={18} />
-              {label}
-            </NavLink>
-          ))}
+          {navItems.map(({ to, label, icon: Icon }) => {
+            const isSettingsLink = to === '/settings'
+            const disabled = isBlocked && !isSettingsLink
+            return (
+              <NavLink
+                key={to}
+                to={disabled ? '#' : to}
+                onClick={e => { if (disabled) e.preventDefault() }}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                    disabled
+                      ? 'text-text-muted cursor-not-allowed opacity-50'
+                      : isActive
+                      ? 'bg-accent-light text-accent'
+                      : 'text-text-secondary hover:bg-gray-50 hover:text-navy'
+                  }`
+                }
+              >
+                <Icon size={18} />
+                {label}
+                {disabled && <Lock size={14} className="ml-auto text-text-muted" />}
+              </NavLink>
+            )
+          })}
         </nav>
 
-        {/* Profile + Sign out */}
         <div className="p-3 border-t border-border">
           <div className="flex items-center gap-3 px-3 py-3">
             <div className="w-9 h-9 rounded-full bg-accent flex items-center justify-center text-white text-xs font-bold">
@@ -91,7 +108,7 @@ export function AppLayout() {
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-navy truncate">{displayName}</p>
               <div className="flex items-center gap-1.5">
-                <span className="text-[10px] font-semibold bg-accent/10 text-accent px-1.5 py-0.5 rounded">Pro</span>
+                {planBadge}
                 {profile?.studio_name && (
                   <span className="text-xs text-text-muted truncate">{profile.studio_name}</span>
                 )}
@@ -109,8 +126,34 @@ export function AppLayout() {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 p-8 overflow-auto">
-        <Outlet />
+      <main className="flex-1 p-8 overflow-auto relative">
+        {isBlocked && !isOnSettings ? (
+          <div className="flex flex-col items-center justify-center min-h-[80vh]">
+            <div className="w-16 h-16 bg-accent rounded-2xl flex items-center justify-center overflow-hidden p-2 mb-6">
+              <img src="/logo-tatboard.png" alt="Tatboard" className="w-full h-full object-contain" />
+            </div>
+            <h1 className="text-2xl font-bold text-navy mb-3 text-center">
+              Ton essai gratuit de 7 jours est terminé
+            </h1>
+            <p className="text-text-secondary text-center max-w-md mb-8">
+              Pour continuer à utiliser Tatboard et retrouver toutes tes données, passe à Pro.
+            </p>
+            <button
+              disabled
+              className="px-8 py-3 bg-accent text-white text-sm font-medium rounded-xl hover:bg-accent/90 transition-colors mb-4"
+            >
+              Passer à Pro — 19,99€/mois
+            </button>
+            <button
+              onClick={() => navigate('/settings')}
+              className="text-sm text-text-muted hover:text-accent transition-colors"
+            >
+              Aller aux réglages
+            </button>
+          </div>
+        ) : (
+          <Outlet />
+        )}
       </main>
     </div>
   )
