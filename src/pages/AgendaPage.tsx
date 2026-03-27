@@ -72,7 +72,7 @@ function formatDateLong(d: Date) {
 }
 
 const HOUR_HEIGHT = 60 // px per hour
-const HOURS = Array.from({ length: 12 }, (_, i) => i + 8) // 8:00 to 19:00
+const HOURS = Array.from({ length: 16 }, (_, i) => i + 8) // 8:00 to 23:00
 const GRID_START_HOUR = 8
 
 export default function AgendaPage() {
