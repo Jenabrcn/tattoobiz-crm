@@ -321,6 +321,21 @@ export default function SettingsPage() {
             >
               Remettre essai +7 jours
             </button>
+            <button
+              onClick={async () => {
+                const inTwoDays = new Date()
+                inTwoDays.setDate(inTwoDays.getDate() + 2)
+                await supabase.from('users').update({
+                  plan: 'trial',
+                  trial_ends_at: inTwoDays.toISOString(),
+                }).eq('id', user.id)
+                refreshProfile()
+                window.location.reload()
+              }}
+              className="px-4 py-2 text-sm font-medium rounded-xl bg-amber-500 text-white hover:bg-amber-600 transition-colors"
+            >
+              Simuler J-2 avant fin
+            </button>
           </div>
         </div>
       )}
