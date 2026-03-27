@@ -27,11 +27,9 @@ export function AppLayout() {
   const [profile, setProfile] = useState<{ first_name: string | null; last_name: string | null; studio_name: string | null } | null>(null)
   const [showTrialWarning, setShowTrialWarning] = useState(false)
   const [warningDismissed, setWarningDismissed] = useState(false)
-  const [blockerDismissed, setBlockerDismissed] = useState(false)
 
   const isBlocked = (subscription.plan === 'trial' && subscription.isTrialExpired) || subscription.plan === 'expired'
   const isOnSettings = location.pathname === '/settings'
-  const isExpiredPro = subscription.plan === 'expired'
 
   useEffect(() => {
     if (!user) return
@@ -45,12 +43,12 @@ export function AppLayout() {
       })
   }, [user, profileVersion])
 
-  // Re-show blocker when navigating away from settings
+  // Redirect to /settings when blocked and not already there
   useEffect(() => {
-    if (isBlocked && !isOnSettings && blockerDismissed) {
-      setBlockerDismissed(false)
+    if (isBlocked && !isOnSettings) {
+      navigate('/settings', { replace: true })
     }
-  }, [location.pathname, isBlocked, isOnSettings, blockerDismissed])
+  }, [isBlocked, isOnSettings, navigate])
 
   // Show trial warning once per session when 2 days or less remain
   useEffect(() => {
@@ -77,7 +75,7 @@ export function AppLayout() {
   // Plan badge
   const planBadge = subscription.plan === 'pro'
     ? <span className="text-[10px] font-semibold bg-green/10 text-green px-1.5 py-0.5 rounded">Pro</span>
-    : subscription.isTrialExpired
+    : subscription.isTrialExpired || subscription.plan === 'expired'
     ? <span className="text-[10px] font-semibold bg-red/10 text-red px-1.5 py-0.5 rounded">Expiré</span>
     : <span className="text-[10px] font-semibold bg-accent/10 text-accent px-1.5 py-0.5 rounded">Essai</span>
 
@@ -103,8 +101,7 @@ export function AppLayout() {
             return (
               <NavLink
                 key={to}
-                to={disabled ? '#' : to}
-                onClick={e => { if (disabled) e.preventDefault() }}
+                to={disabled ? '/settings' : to}
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
                     disabled
@@ -149,59 +146,11 @@ export function AppLayout() {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 p-8 overflow-auto relative">
+      <main className="flex-1 p-8 overflow-auto">
         <Outlet />
       </main>
 
-      {/* Full-screen blocker when trial/subscription expired */}
-      {isBlocked && !blockerDismissed && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/95 backdrop-blur-sm">
-          <div className="flex flex-col items-center justify-center p-8 max-w-md text-center">
-            <div className="w-16 h-16 bg-accent rounded-2xl flex items-center justify-center overflow-hidden p-2 mb-6">
-              <img src="/logo-tatboard.png" alt="Tatboard" className="w-full h-full object-contain" />
-            </div>
-            <h1 className="text-2xl font-bold text-navy mb-3">
-              {isExpiredPro
-                ? "Ton abonnement Pro a expiré"
-                : "Ton essai gratuit de 7 jours est terminé"}
-            </h1>
-            <p className="text-text-secondary mb-8">
-              {isExpiredPro
-                ? "Pour retrouver l'accès à Tatboard et toutes tes données, réactive ton abonnement."
-                : "Pour continuer à utiliser Tatboard et retrouver toutes tes données, passe à Pro."}
-            </p>
-            <button
-              onClick={async () => {
-                if (!user?.email) return
-                const res = await fetch('/api/create-checkout-session', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ userId: user.id, email: user.email }),
-                })
-                const data = await res.json()
-                if (data.url) window.location.href = data.url
-              }}
-              className="px-8 py-3 bg-accent text-white text-sm font-medium rounded-xl hover:bg-accent/90 transition-colors mb-4"
-            >
-              Passer à Pro — 19,99€/mois
-            </button>
-            <button
-              onClick={() => { setBlockerDismissed(true); navigate('/settings') }}
-              className="text-sm text-text-muted hover:text-accent transition-colors mb-3"
-            >
-              Aller aux réglages
-            </button>
-            <button
-              onClick={handleSignOut}
-              className="text-sm text-text-muted hover:text-text-secondary transition-colors"
-            >
-              Déconnexion
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Trial warning popup */}
+      {/* Trial warning popup (J-2) */}
       {showTrialWarning && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="bg-white rounded-2xl w-full max-w-md mx-4 p-8 text-center">
