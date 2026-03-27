@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { User, Crown, Trash2, ExternalLink } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
@@ -27,6 +27,8 @@ async function handleManageSubscription(email: string) {
 export default function SettingsPage() {
   const { user, signOut, refreshProfile, subscription } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const isDebug = searchParams.get('debug') === 'true'
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -280,6 +282,48 @@ export default function SettingsPage() {
           </>
         )}
       </div>
+
+      {/* Debug trial (only with ?debug=true) */}
+      {isDebug && user && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-6">
+          <h2 className="text-base font-semibold text-amber-800 mb-3">Debug — Essai gratuit</h2>
+          <p className="text-sm text-amber-700 mb-4">
+            Plan : <strong>{subscription.plan}</strong> — Jours restants : <strong>{subscription.daysLeft}</strong> — Expiré : <strong>{subscription.isTrialExpired ? 'Oui' : 'Non'}</strong>
+          </p>
+          <div className="flex gap-3">
+            <button
+              onClick={async () => {
+                const yesterday = new Date()
+                yesterday.setDate(yesterday.getDate() - 1)
+                await supabase.from('users').update({
+                  plan: 'trial',
+                  trial_ends_at: yesterday.toISOString(),
+                }).eq('id', user.id)
+                refreshProfile()
+                window.location.reload()
+              }}
+              className="px-4 py-2 text-sm font-medium rounded-xl bg-red text-white hover:bg-red/90 transition-colors"
+            >
+              Simuler fin d'essai
+            </button>
+            <button
+              onClick={async () => {
+                const inSevenDays = new Date()
+                inSevenDays.setDate(inSevenDays.getDate() + 7)
+                await supabase.from('users').update({
+                  plan: 'trial',
+                  trial_ends_at: inSevenDays.toISOString(),
+                }).eq('id', user.id)
+                refreshProfile()
+                window.location.reload()
+              }}
+              className="px-4 py-2 text-sm font-medium rounded-xl bg-green text-white hover:bg-green/90 transition-colors"
+            >
+              Remettre essai +7 jours
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Supprimer mon compte */}
       <div className="bg-white rounded-xl border border-border p-6">
