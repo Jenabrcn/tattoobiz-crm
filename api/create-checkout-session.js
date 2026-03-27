@@ -28,20 +28,17 @@ export default async function handler(req, res) {
       mode: 'subscription',
       payment_method_types: ['card'],
       customer_email: email,
-      customer_creation: 'always',
       billing_address_collection: 'required',
       custom_fields: [
         {
           key: 'company_name',
           label: { type: 'custom', custom: "Nom de l'entreprise" },
           type: 'text',
-          optional: false,
         },
         {
           key: 'siret',
           label: { type: 'custom', custom: 'Numéro SIRET' },
           type: 'text',
-          optional: false,
         },
       ],
       line_items: [
