@@ -8,11 +8,13 @@ import {
   Settings,
   LogOut,
   Lock,
+  GraduationCap,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
 const navItems = [
+  { to: '/onboarding', label: 'Démarrer ici', icon: GraduationCap },
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/clients', label: 'Clients', icon: Users },
   { to: '/agenda', label: 'Agenda', icon: CalendarDays },
