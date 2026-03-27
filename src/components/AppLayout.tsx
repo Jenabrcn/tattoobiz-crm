@@ -29,6 +29,10 @@ export function AppLayout() {
   const [warningDismissed, setWarningDismissed] = useState(false)
   const [blockerDismissed, setBlockerDismissed] = useState(false)
 
+  const isBlocked = (subscription.plan === 'trial' && subscription.isTrialExpired) || subscription.plan === 'expired'
+  const isOnSettings = location.pathname === '/settings'
+  const isExpiredPro = subscription.plan === 'expired'
+
   useEffect(() => {
     if (!user) return
     supabase
@@ -69,10 +73,6 @@ export function AppLayout() {
   const initials = profile
     ? `${(profile.first_name || '')[0] || ''}${(profile.last_name || '')[0] || ''}`.toUpperCase() || 'U'
     : 'U'
-
-  const isBlocked = (subscription.plan === 'trial' && subscription.isTrialExpired) || subscription.plan === 'expired'
-  const isOnSettings = location.pathname === '/settings'
-  const isExpiredPro = subscription.plan === 'expired'
 
   // Plan badge
   const planBadge = subscription.plan === 'pro'
