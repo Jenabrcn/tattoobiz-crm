@@ -50,28 +50,19 @@ export default function SettingsPage() {
     setSaveError(null)
 
     try {
-      const [{ error }, { error: authError }] = await Promise.all([
-        supabase
-          .from('users')
-          .update({
-            first_name: form.first_name.trim() || null,
-            last_name: form.last_name.trim() || null,
-            studio_name: form.studio_name.trim() || null,
-            studio_address: form.studio_address.trim() || null,
-            siret: form.siret.trim() || null,
-          })
-          .eq('id', user.id),
-        supabase.auth.updateUser({
-          data: {
-            first_name: form.first_name.trim() || null,
-            last_name: form.last_name.trim() || null,
-            studio_name: form.studio_name.trim() || null,
-          },
-        }),
-      ])
+      const { error } = await supabase
+        .from('users')
+        .update({
+          first_name: form.first_name.trim() || null,
+          last_name: form.last_name.trim() || null,
+          studio_name: form.studio_name.trim() || null,
+          studio_address: form.studio_address.trim() || null,
+          siret: form.siret.trim() || null,
+        })
+        .eq('id', user.id)
 
       setSaving(false)
-      if (error || authError) {
+      if (error) {
         setSaveError('Erreur lors de la sauvegarde.')
       } else {
         setSaved(true)
