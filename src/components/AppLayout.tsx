@@ -27,6 +27,7 @@ export function AppLayout() {
   const [profile, setProfile] = useState<{ first_name: string | null; last_name: string | null; studio_name: string | null } | null>(null)
   const [showTrialWarning, setShowTrialWarning] = useState(false)
   const [warningDismissed, setWarningDismissed] = useState(false)
+  const [blockerDismissed, setBlockerDismissed] = useState(false)
 
   useEffect(() => {
     if (!user) return
@@ -39,6 +40,13 @@ export function AppLayout() {
         if (data) setProfile(data)
       })
   }, [user, profileVersion])
+
+  // Re-show blocker when navigating away from settings
+  useEffect(() => {
+    if (isBlocked && !isOnSettings && blockerDismissed) {
+      setBlockerDismissed(false)
+    }
+  }, [location.pathname, isBlocked, isOnSettings, blockerDismissed])
 
   // Show trial warning once per session when 2 days or less remain
   useEffect(() => {
@@ -146,8 +154,8 @@ export function AppLayout() {
       </main>
 
       {/* Full-screen blocker when trial/subscription expired */}
-      {isBlocked && !isOnSettings && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-background">
+      {isBlocked && !blockerDismissed && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/95 backdrop-blur-sm">
           <div className="flex flex-col items-center justify-center p-8 max-w-md text-center">
             <div className="w-16 h-16 bg-accent rounded-2xl flex items-center justify-center overflow-hidden p-2 mb-6">
               <img src="/logo-tatboard.png" alt="Tatboard" className="w-full h-full object-contain" />
@@ -178,7 +186,7 @@ export function AppLayout() {
               Passer à Pro — 19,99€/mois
             </button>
             <button
-              onClick={() => navigate('/settings')}
+              onClick={() => { setBlockerDismissed(true); navigate('/settings') }}
               className="text-sm text-text-muted hover:text-accent transition-colors mb-3"
             >
               Aller aux réglages
