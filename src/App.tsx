@@ -10,6 +10,7 @@ import ClientDetailPage from './pages/ClientDetailPage'
 import AgendaPage from './pages/AgendaPage'
 import FinancesPage from './pages/FinancesPage'
 import SettingsPage from './pages/SettingsPage'
+import OnboardingPage from './pages/OnboardingPage'
 import TermsPage from './pages/TermsPage'
 import PrivacyPage from './pages/PrivacyPage'
 
@@ -23,6 +24,7 @@ function App() {
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route element={<ProtectedRoute />}>
           <Route element={<AppLayout />}>
+            <Route path="/onboarding" element={<OnboardingPage />} />
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/clients" element={<ClientsPage />} />
             <Route path="/clients/:id" element={<ClientDetailPage />} />
