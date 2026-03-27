@@ -25,6 +25,8 @@ export function AppLayout() {
   const navigate = useNavigate()
   const location = useLocation()
   const [profile, setProfile] = useState<{ first_name: string | null; last_name: string | null; studio_name: string | null } | null>(null)
+  const [showTrialWarning, setShowTrialWarning] = useState(false)
+  const [warningDismissed, setWarningDismissed] = useState(false)
 
   useEffect(() => {
     if (!user) return
@@ -37,6 +39,18 @@ export function AppLayout() {
         if (data) setProfile(data)
       })
   }, [user, profileVersion])
+
+  // Show trial warning once per session when 2 days or less remain
+  useEffect(() => {
+    if (
+      subscription.plan === 'trial' &&
+      !subscription.isTrialExpired &&
+      subscription.daysLeft <= 2 &&
+      !warningDismissed
+    ) {
+      setShowTrialWarning(true)
+    }
+  }, [subscription, warningDismissed])
 
   const handleSignOut = () => {
     signOut()
@@ -164,6 +178,44 @@ export function AppLayout() {
           <Outlet />
         )}
       </main>
+
+      {/* Trial warning popup */}
+      {showTrialWarning && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl w-full max-w-md mx-4 p-8 text-center">
+            <p className="text-3xl mb-4">⚠️</p>
+            <h2 className="text-lg font-bold text-navy mb-3">
+              Ton essai gratuit se termine dans {subscription.daysLeft} jour{subscription.daysLeft > 1 ? 's' : ''}
+            </h2>
+            <p className="text-sm text-text-secondary mb-6">
+              Passe à Pro pour ne pas perdre l'accès à tes données.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setShowTrialWarning(false); setWarningDismissed(true) }}
+                className="flex-1 px-4 py-2.5 text-sm font-medium rounded-xl border border-border text-text-secondary hover:bg-gray-50 transition-colors"
+              >
+                Plus tard
+              </button>
+              <button
+                onClick={async () => {
+                  if (!user?.email) return
+                  const res = await fetch('/api/create-checkout-session', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: user.id, email: user.email }),
+                  })
+                  const data = await res.json()
+                  if (data.url) window.location.href = data.url
+                }}
+                className="flex-1 px-4 py-2.5 text-sm font-medium rounded-xl bg-accent text-white hover:bg-accent/90 transition-colors"
+              >
+                Passer à Pro — 19,99€/mois
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
