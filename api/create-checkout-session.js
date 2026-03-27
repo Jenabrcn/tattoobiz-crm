@@ -29,7 +29,6 @@ export default async function handler(req, res) {
       payment_method_types: ['card'],
       customer_email: email,
       billing_address_collection: 'required',
-      invoice_creation: { enabled: true },
       line_items: [
         {
           price: 'price_1TFVgbRtwrJdptvCcpLhno0G',
