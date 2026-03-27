@@ -142,17 +142,22 @@ export function AppLayout() {
 
       {/* Main content */}
       <main className="flex-1 p-8 overflow-auto relative">
-        {isBlocked && !isOnSettings ? (
-          <div className="flex flex-col items-center justify-center min-h-[80vh]">
+        <Outlet />
+      </main>
+
+      {/* Full-screen blocker when trial/subscription expired */}
+      {isBlocked && !isOnSettings && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-background">
+          <div className="flex flex-col items-center justify-center p-8 max-w-md text-center">
             <div className="w-16 h-16 bg-accent rounded-2xl flex items-center justify-center overflow-hidden p-2 mb-6">
               <img src="/logo-tatboard.png" alt="Tatboard" className="w-full h-full object-contain" />
             </div>
-            <h1 className="text-2xl font-bold text-navy mb-3 text-center">
+            <h1 className="text-2xl font-bold text-navy mb-3">
               {isExpiredPro
                 ? "Ton abonnement Pro a expiré"
                 : "Ton essai gratuit de 7 jours est terminé"}
             </h1>
-            <p className="text-text-secondary text-center max-w-md mb-8">
+            <p className="text-text-secondary mb-8">
               {isExpiredPro
                 ? "Pour retrouver l'accès à Tatboard et toutes tes données, réactive ton abonnement."
                 : "Pour continuer à utiliser Tatboard et retrouver toutes tes données, passe à Pro."}
@@ -174,15 +179,19 @@ export function AppLayout() {
             </button>
             <button
               onClick={() => navigate('/settings')}
-              className="text-sm text-text-muted hover:text-accent transition-colors"
+              className="text-sm text-text-muted hover:text-accent transition-colors mb-3"
             >
               Aller aux réglages
             </button>
+            <button
+              onClick={handleSignOut}
+              className="text-sm text-text-muted hover:text-text-secondary transition-colors"
+            >
+              Déconnexion
+            </button>
           </div>
-        ) : (
-          <Outlet />
-        )}
-      </main>
+        </div>
+      )}
 
       {/* Trial warning popup */}
       {showTrialWarning && (
