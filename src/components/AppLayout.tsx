@@ -62,8 +62,9 @@ export function AppLayout() {
     ? `${(profile.first_name || '')[0] || ''}${(profile.last_name || '')[0] || ''}`.toUpperCase() || 'U'
     : 'U'
 
-  const isBlocked = subscription.plan === 'trial' && subscription.isTrialExpired
+  const isBlocked = (subscription.plan === 'trial' && subscription.isTrialExpired) || subscription.plan === 'expired'
   const isOnSettings = location.pathname === '/settings'
+  const isExpiredPro = subscription.plan === 'expired'
 
   // Plan badge
   const planBadge = subscription.plan === 'pro'
@@ -147,10 +148,14 @@ export function AppLayout() {
               <img src="/logo-tatboard.png" alt="Tatboard" className="w-full h-full object-contain" />
             </div>
             <h1 className="text-2xl font-bold text-navy mb-3 text-center">
-              Ton essai gratuit de 7 jours est terminé
+              {isExpiredPro
+                ? "Ton abonnement Pro a expiré"
+                : "Ton essai gratuit de 7 jours est terminé"}
             </h1>
             <p className="text-text-secondary text-center max-w-md mb-8">
-              Pour continuer à utiliser Tatboard et retrouver toutes tes données, passe à Pro.
+              {isExpiredPro
+                ? "Pour retrouver l'accès à Tatboard et toutes tes données, réactive ton abonnement."
+                : "Pour continuer à utiliser Tatboard et retrouver toutes tes données, passe à Pro."}
             </p>
             <button
               onClick={async () => {

@@ -238,6 +238,24 @@ export default function SettingsPage() {
               Gérer mon abonnement
             </button>
           </>
+        ) : subscription.plan === 'expired' ? (
+          <>
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-sm text-text-secondary">Plan actuel :</span>
+              <span className="text-xs font-semibold bg-red/10 text-red px-3 py-1 rounded-lg">
+                Abonnement expiré
+              </span>
+            </div>
+            <p className="text-sm text-navy font-medium mb-4">
+              Ton abonnement Pro a expiré. Réactive-le pour retrouver l'accès.
+            </p>
+            <button
+              onClick={() => user && handleCheckout(user.email!, user.id)}
+              className="px-6 py-2.5 bg-accent text-white text-sm font-medium rounded-xl hover:bg-accent/90 transition-colors"
+            >
+              Passer à Pro — 19,99€/mois
+            </button>
+          </>
         ) : subscription.isTrialExpired ? (
           <>
             <div className="flex items-center gap-3 mb-4">
