@@ -52,6 +52,8 @@ export default function LoginPage() {
   const [signupSuccess, setSignupSuccess] = useState(false)
   const [forgotPassword, setForgotPassword] = useState(false)
   const [resetEmail, setResetEmail] = useState('')
+  const [acceptedTerms, setAcceptedTerms] = useState(false)
+  const [termsError, setTermsError] = useState(false)
   const [resetSent, setResetSent] = useState(false)
   const [resetError, setResetError] = useState<string | null>(null)
 
@@ -469,9 +471,34 @@ export default function LoginPage() {
 
                 {error && <p className="text-sm text-red">{error}</p>}
 
+                <div>
+                  <label className="flex items-start gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={acceptedTerms}
+                      onChange={e => { setAcceptedTerms(e.target.checked); setTermsError(false) }}
+                      className="mt-1 rounded border-border text-accent focus:ring-accent/30"
+                    />
+                    <span className="text-xs text-text-secondary leading-relaxed">
+                      J'accepte les{' '}
+                      <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+                        conditions générales d'utilisation
+                      </a>{' '}
+                      et la{' '}
+                      <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+                        politique de confidentialité
+                      </a>
+                    </span>
+                  </label>
+                  {termsError && (
+                    <p className="text-xs text-red mt-1">Tu dois accepter les conditions pour créer ton compte.</p>
+                  )}
+                </div>
+
                 <button
                   type="submit"
-                  disabled={submitting}
+                  disabled={submitting || !acceptedTerms}
+                  onClick={() => { if (!acceptedTerms) setTermsError(true) }}
                   className="w-full py-3 px-4 bg-accent text-white font-semibold rounded-xl hover:bg-accent/90 transition-colors disabled:opacity-50 text-sm"
                 >
                   {submitting ? '...' : 'Créer mon compte →'}

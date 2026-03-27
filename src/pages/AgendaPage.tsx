@@ -72,7 +72,7 @@ function formatDateLong(d: Date) {
 }
 
 const HOUR_HEIGHT = 60 // px per hour
-const HOURS = Array.from({ length: 16 }, (_, i) => i + 8) // 8:00 to 23:00
+const HOURS = Array.from({ length: 13 }, (_, i) => i + 8) // 8:00 to 20:00
 const GRID_START_HOUR = 8
 
 export default function AgendaPage() {
@@ -713,13 +713,6 @@ function DayView({
                 <span className={`font-semibold ${style.text}`}>{formatTime(a.time)} - {endTime}</span>
                 <span className="text-navy font-medium">{a.client_first_name} {a.client_last_name}</span>
               </div>
-              <div className="flex items-center gap-3 mt-0.5 text-xs text-text-muted">
-                <span>{TYPE_LABELS[a.type] || a.type}</span>
-                <span>{DURATION_OPTIONS.find(d => d.value === String(a.duration_minutes))?.label || `${a.duration_minutes} min`}</span>
-              </div>
-              {a.description && (
-                <p className="text-xs text-text-muted mt-0.5 truncate">{a.description}</p>
-              )}
             </div>
           )
         })}
