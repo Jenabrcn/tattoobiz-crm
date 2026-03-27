@@ -495,14 +495,15 @@ export default function LoginPage() {
                   )}
                 </div>
 
-                <button
-                  type="submit"
-                  disabled={submitting || !acceptedTerms}
-                  onClick={() => { if (!acceptedTerms) setTermsError(true) }}
-                  className="w-full py-3 px-4 bg-accent text-white font-semibold rounded-xl hover:bg-accent/90 transition-colors disabled:opacity-50 text-sm"
-                >
-                  {submitting ? '...' : 'Créer mon compte →'}
-                </button>
+                <div onClick={() => { if (!acceptedTerms) setTermsError(true) }}>
+                  <button
+                    type="submit"
+                    disabled={submitting || !acceptedTerms}
+                    className="w-full py-3 px-4 bg-accent text-white font-semibold rounded-xl hover:bg-accent/90 transition-colors disabled:opacity-50 text-sm"
+                  >
+                    {submitting ? '...' : 'Créer mon compte →'}
+                  </button>
+                </div>
 
                 <p className="text-center text-sm text-text-muted">
                   Déjà un compte ?{' '}
