@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 
 export default function SettingsPage() {
-  const { user, signOut, refreshProfile } = useAuth()
+  const { user, signOut, refreshProfile, subscription } = useAuth()
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -196,21 +196,62 @@ export default function SettingsPage() {
           <Crown size={18} className="text-accent" />
           Mon abonnement
         </h2>
-        <div className="flex items-center gap-3 mb-4">
-          <span className="text-sm text-text-secondary">Plan actuel :</span>
-          <span className="text-xs font-semibold bg-gray-100 text-text-secondary px-3 py-1 rounded-lg">
-            Free
-          </span>
-        </div>
-        <p className="text-sm text-text-muted mb-4">
-          Tu es sur le plan Free. Passe à Pro pour débloquer toutes les fonctionnalités.
-        </p>
-        <button
-          disabled
-          className="px-6 py-2.5 bg-accent/40 text-white text-sm font-medium rounded-xl cursor-not-allowed"
-        >
-          Passer à Pro — Bientôt disponible
-        </button>
+
+        {subscription.plan === 'pro' ? (
+          <>
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-sm text-text-secondary">Plan actuel :</span>
+              <span className="text-xs font-semibold bg-green/10 text-green px-3 py-1 rounded-lg">
+                Pro ✓
+              </span>
+            </div>
+            <p className="text-sm text-text-muted">
+              Tu es sur le plan Pro. Merci pour ta confiance !
+            </p>
+          </>
+        ) : subscription.isTrialExpired ? (
+          <>
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-sm text-text-secondary">Plan actuel :</span>
+              <span className="text-xs font-semibold bg-red/10 text-red px-3 py-1 rounded-lg">
+                Essai terminé
+              </span>
+            </div>
+            <p className="text-sm text-navy font-medium mb-4">
+              Ton essai gratuit est terminé.
+            </p>
+            <button
+              disabled
+              className="px-6 py-2.5 bg-accent text-white text-sm font-medium rounded-xl hover:bg-accent/90 transition-colors"
+            >
+              Passer à Pro — 19,99€/mois
+            </button>
+          </>
+        ) : (
+          <>
+            <div className="flex items-center gap-3 mb-3">
+              <span className="text-sm text-text-secondary">Plan actuel :</span>
+              <span className="text-xs font-semibold bg-accent-light text-accent px-3 py-1 rounded-lg">
+                Essai gratuit
+              </span>
+            </div>
+            <p className="text-sm text-navy mb-3">
+              Tu es en essai gratuit. Il te reste <strong>{subscription.daysLeft} jour{subscription.daysLeft > 1 ? 's' : ''}</strong> pour découvrir Tatboard.
+            </p>
+            <div className="h-2 bg-gray-100 rounded-full overflow-hidden mb-4">
+              <div
+                className="h-full bg-accent rounded-full transition-all"
+                style={{ width: `${Math.round(((7 - subscription.daysLeft) / 7) * 100)}%` }}
+              />
+            </div>
+            <button
+              disabled
+              className="px-6 py-2.5 bg-accent text-white text-sm font-medium rounded-xl hover:bg-accent/90 transition-colors"
+            >
+              Passer à Pro — 19,99€/mois
+            </button>
+          </>
+        )}
       </div>
 
       {/* Supprimer mon compte */}

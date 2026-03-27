@@ -10,6 +10,8 @@ export interface Database {
           studio_name: string | null
           studio_address: string | null
           siret: string | null
+          plan: string | null
+          trial_ends_at: string | null
           created_at: string
         }
         Insert: {
@@ -20,6 +22,8 @@ export interface Database {
           studio_name?: string | null
           studio_address?: string | null
           siret?: string | null
+          plan?: string | null
+          trial_ends_at?: string | null
           created_at?: string
         }
         Update: {
@@ -30,6 +34,8 @@ export interface Database {
           studio_name?: string | null
           studio_address?: string | null
           siret?: string | null
+          plan?: string | null
+          trial_ends_at?: string | null
           created_at?: string
         }
         Relationships: []
