@@ -1,8 +1,28 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { User, Crown, Trash2 } from 'lucide-react'
+import { User, Crown, Trash2, ExternalLink } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
+
+async function handleCheckout(email: string, userId: string) {
+  const res = await fetch('/api/create-checkout-session', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId, email }),
+  })
+  const data = await res.json()
+  if (data.url) window.location.href = data.url
+}
+
+async function handleManageSubscription(email: string) {
+  const res = await fetch('/api/create-portal-session', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  })
+  const data = await res.json()
+  if (data.url) window.location.href = data.url
+}
 
 export default function SettingsPage() {
   const { user, signOut, refreshProfile, subscription } = useAuth()
@@ -205,9 +225,16 @@ export default function SettingsPage() {
                 Pro ✓
               </span>
             </div>
-            <p className="text-sm text-text-muted">
+            <p className="text-sm text-text-muted mb-4">
               Tu es sur le plan Pro. Merci pour ta confiance !
             </p>
+            <button
+              onClick={() => user?.email && handleManageSubscription(user.email)}
+              className="flex items-center gap-2 px-6 py-2.5 text-sm font-medium rounded-xl border border-border text-text-secondary hover:bg-gray-50 transition-colors"
+            >
+              <ExternalLink size={16} />
+              Gérer mon abonnement
+            </button>
           </>
         ) : subscription.isTrialExpired ? (
           <>
@@ -221,7 +248,7 @@ export default function SettingsPage() {
               Ton essai gratuit est terminé.
             </p>
             <button
-              disabled
+              onClick={() => user && handleCheckout(user.email!, user.id)}
               className="px-6 py-2.5 bg-accent text-white text-sm font-medium rounded-xl hover:bg-accent/90 transition-colors"
             >
               Passer à Pro — 19,99€/mois
@@ -245,7 +272,7 @@ export default function SettingsPage() {
               />
             </div>
             <button
-              disabled
+              onClick={() => user && handleCheckout(user.email!, user.id)}
               className="px-6 py-2.5 bg-accent text-white text-sm font-medium rounded-xl hover:bg-accent/90 transition-colors"
             >
               Passer à Pro — 19,99€/mois

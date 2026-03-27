@@ -139,7 +139,16 @@ export function AppLayout() {
               Pour continuer à utiliser Tatboard et retrouver toutes tes données, passe à Pro.
             </p>
             <button
-              disabled
+              onClick={async () => {
+                if (!user?.email) return
+                const res = await fetch('/api/create-checkout-session', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ userId: user.id, email: user.email }),
+                })
+                const data = await res.json()
+                if (data.url) window.location.href = data.url
+              }}
               className="px-8 py-3 bg-accent text-white text-sm font-medium rounded-xl hover:bg-accent/90 transition-colors mb-4"
             >
               Passer à Pro — 19,99€/mois

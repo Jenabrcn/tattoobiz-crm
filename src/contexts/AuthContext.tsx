@@ -69,6 +69,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else if (plan === 'pro') {
         isTrialExpired = false
         daysLeft = 0
+      } else if (plan === 'expired') {
+        isTrialExpired = true
+        daysLeft = 0
       }
 
       setSubscription({ plan, trialEndsAt, isTrialExpired, daysLeft })
