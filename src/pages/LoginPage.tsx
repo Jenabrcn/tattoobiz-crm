@@ -17,8 +17,8 @@ function getPasswordStrength(pw: string): { level: 0 | 1 | 2 | 3; label: string;
   const hasLower = /[a-z]/.test(pw)
   const hasDigit = /\d/.test(pw)
   const specialCount = (pw.match(/[^A-Za-z0-9]/g) || []).length
-  if (pw.length >= 12 && hasUpper && hasLower && hasDigit && specialCount >= 2) return { level: 3, label: 'Fort', color: '#16a34a' }
-  if (pw.length >= 10 && hasUpper && hasLower && hasDigit && specialCount >= 1) return { level: 2, label: 'Moyen', color: '#f59e0b' }
+  if (pw.length >= 17 && hasUpper && hasLower && hasDigit && specialCount >= 2) return { level: 3, label: 'Fort', color: '#16a34a' }
+  if (pw.length >= 12 && hasUpper && hasLower && hasDigit && specialCount >= 1) return { level: 2, label: 'Moyen', color: '#f59e0b' }
   return { level: 1, label: 'Faible', color: '#dc2626' }
 }
 
