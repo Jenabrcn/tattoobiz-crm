@@ -58,7 +58,7 @@ interface FinanceEntry {
   type: 'revenu' | 'depense' | 'arrhes'
 }
 
-type PhotoType = 'consentement' | 'fiche_soin' | 'tattoo_frais' | 'tattoo_cicatrise'
+type PhotoType = 'consentement' | 'fiche_soin'
 
 interface Photo {
   id: string
@@ -424,8 +424,6 @@ export default function ClientDetailPage() {
             {([
               { type: 'consentement' as PhotoType, label: 'Consentement éclairé', icon: '📋' },
               { type: 'fiche_soin' as PhotoType, label: 'Fiche de soin', icon: '💊' },
-              { type: 'tattoo_frais' as PhotoType, label: 'Tattoo frais', icon: '🎨' },
-              { type: 'tattoo_cicatrise' as PhotoType, label: 'Tattoo cicatrisé', icon: '✅' },
             ]).map(slot => {
               const photo = photos.find(p => p.type === slot.type)
               const isUploading = uploadingType === slot.type
