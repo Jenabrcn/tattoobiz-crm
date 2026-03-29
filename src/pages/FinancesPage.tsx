@@ -686,6 +686,12 @@ function EditFinanceModal({ entry, onClose, onUpdated }: { entry: FinanceEntry; 
   const isRevenue = entry.type === 'revenu' || entry.type === 'arrhes'
   const [saving, setSaving] = useState(false)
   const [invoiceFile, setInvoiceFile] = useState<File | null>(null)
+  const [clients, setClients] = useState<{ id: string; first_name: string; last_name: string }[]>([])
+  const [clientSearch, setClientSearch] = useState(entry.client_name || '')
+  const [selectedClient, setSelectedClient] = useState<{ id: string; first_name: string; last_name: string } | null>(
+    entry.client_id ? { id: entry.client_id, first_name: entry.client_name?.split(' ')[0] || '', last_name: entry.client_name?.split(' ').slice(1).join(' ') || '' } : null
+  )
+  const [showClientDropdown, setShowClientDropdown] = useState(false)
   const [form, setForm] = useState({
     type: isRevenue ? 'revenu' : 'depense',
     subtype: entry.type === 'arrhes' ? 'arrhes' : 'solde',
@@ -697,6 +703,16 @@ function EditFinanceModal({ entry, onClose, onUpdated }: { entry: FinanceEntry; 
     supplier: entry.supplier || '',
   })
   const set = (key: string, value: string) => setForm(prev => ({ ...prev, [key]: value }))
+
+  useEffect(() => {
+    supabase.from('clients').select('id, first_name, last_name').order('first_name').then(({ data }) => {
+      if (data) setClients(data)
+    })
+  }, [])
+
+  const filteredClients = clientSearch.trim()
+    ? clients.filter(c => `${c.first_name} ${c.last_name}`.toLowerCase().includes(clientSearch.toLowerCase()))
+    : clients
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -719,6 +735,7 @@ function EditFinanceModal({ entry, onClose, onUpdated }: { entry: FinanceEntry; 
       amount: parseFloat(form.amount),
       description: form.description.trim() || null,
       date: form.date,
+      client_id: form.type !== 'depense' ? (selectedClient?.id || null) : null,
       payment_method: form.payment_method,
       category: form.type === 'depense' ? (form.category || 'Divers') : null,
       supplier: form.type === 'depense' ? (form.supplier.trim() || null) : null,
@@ -784,6 +801,44 @@ function EditFinanceModal({ entry, onClose, onUpdated }: { entry: FinanceEntry; 
               placeholder={form.type === 'depense' ? 'Ex: Loyer studio, Encre...' : form.subtype === 'arrhes' ? 'Ex: Acompte tatouage bras...' : 'Ex: Reste tatouage bras...'}
               className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent" />
           </div>
+          {/* Client / Supplier */}
+          {form.type === 'depense' ? (
+            <div>
+              <label className="block text-sm font-medium text-navy mb-1">Fournisseur</label>
+              <input value={form.supplier} onChange={e => set('supplier', e.target.value)}
+                placeholder="Ex: Amazon, Encre Shop, Propriétaire..."
+                className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent" />
+            </div>
+          ) : (
+            <div className="relative">
+              <label className="block text-sm font-medium text-navy mb-1">Client</label>
+              <div className="relative">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+                <input
+                  value={clientSearch}
+                  onChange={e => { setClientSearch(e.target.value); setSelectedClient(null); setShowClientDropdown(true) }}
+                  onFocus={() => setShowClientDropdown(true)}
+                  placeholder="Rechercher un client..."
+                  className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+                />
+              </div>
+              {showClientDropdown && clientSearch.trim() && (
+                <div className="absolute z-10 w-full mt-1 bg-white border border-border rounded-xl shadow-lg max-h-40 overflow-y-auto">
+                  {filteredClients.length === 0 ? (
+                    <p className="px-4 py-3 text-sm text-text-muted">Aucun client</p>
+                  ) : (
+                    filteredClients.map(c => (
+                      <button key={c.id} type="button"
+                        onClick={() => { setSelectedClient(c); setClientSearch(`${c.first_name} ${c.last_name}`); setShowClientDropdown(false) }}
+                        className="w-full text-left px-4 py-2.5 text-sm hover:bg-accent-light transition-colors first:rounded-t-xl last:rounded-b-xl">
+                        <span className="font-medium text-navy">{c.first_name} {c.last_name}</span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-navy mb-1">Mode de paiement</label>
@@ -803,14 +858,6 @@ function EditFinanceModal({ entry, onClose, onUpdated }: { entry: FinanceEntry; 
               </div>
             )}
           </div>
-          {form.type === 'depense' && (
-            <div>
-              <label className="block text-sm font-medium text-navy mb-1">Fournisseur</label>
-              <input value={form.supplier} onChange={e => set('supplier', e.target.value)}
-                placeholder="Ex: Amazon, Encre Shop, Propriétaire..."
-                className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent" />
-            </div>
-          )}
           <div>
             <label className="block text-sm font-medium text-navy mb-1">Facture / justificatif</label>
             {entry.invoice_url && !invoiceFile && (
