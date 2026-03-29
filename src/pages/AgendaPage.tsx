@@ -84,6 +84,7 @@ export default function AgendaPage() {
   const [editAppt, setEditAppt] = useState<AgendaAppointment | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [upcomingPage, setUpcomingPage] = useState(1)
 
   const today = fmtDateStr(new Date())
 
@@ -239,13 +240,41 @@ export default function AgendaPage() {
           <h3 className="text-sm font-semibold text-navy mb-4">Prochains rendez-vous</h3>
           {data.upcomingAppointments.length === 0 ? (
             <p className="text-sm text-text-muted py-6 text-center">Aucun rendez-vous à venir</p>
-          ) : (
-            <div className="space-y-3">
-              {data.upcomingAppointments.map(appt => (
-                <AppointmentCard key={appt.id} appt={appt} showDate onClick={() => handleClickAppt(appt)} />
-              ))}
-            </div>
-          )}
+          ) : (() => {
+            const totalPages = Math.max(1, Math.ceil(data.upcomingAppointments.length / 5))
+            const safePage = Math.min(upcomingPage, totalPages)
+            const paginated = data.upcomingAppointments.slice((safePage - 1) * 5, safePage * 5)
+            return (
+              <>
+                <div className="space-y-3">
+                  {paginated.map(appt => (
+                    <AppointmentCard key={appt.id} appt={appt} showDate onClick={() => handleClickAppt(appt)} />
+                  ))}
+                </div>
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between pt-4 mt-2 border-t border-border">
+                    <p className="text-sm text-text-muted">Page {safePage} sur {totalPages}</p>
+                    <div className="flex gap-1">
+                      <button onClick={() => setUpcomingPage(p => Math.max(1, p - 1))} disabled={safePage === 1}
+                        className="p-2 rounded-lg text-text-secondary hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                        <ChevronLeft size={18} />
+                      </button>
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+                        <button key={p} onClick={() => setUpcomingPage(p)}
+                          className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${p === safePage ? 'bg-accent text-white' : 'text-text-secondary hover:bg-gray-100'}`}>
+                          {p}
+                        </button>
+                      ))}
+                      <button onClick={() => setUpcomingPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}
+                        className="p-2 rounded-lg text-text-secondary hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                        <ChevronRight size={18} />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )
+          })()}
         </div>
       </div>
 

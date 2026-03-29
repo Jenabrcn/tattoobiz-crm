@@ -177,7 +177,6 @@ export function useAgendaData() {
   // Upcoming appointments (after today, next 5)
   const upcomingAppointments = appointments
     .filter(a => a.date > today || (a.date === today && a.time > new Date().toTimeString().slice(0, 5)))
-    .slice(0, 5)
 
   return {
     loading,
