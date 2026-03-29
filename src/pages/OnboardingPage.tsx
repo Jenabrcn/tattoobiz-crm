@@ -65,14 +65,8 @@ export default function OnboardingPage() {
       <div>
         <h2 className="text-lg font-bold text-navy mb-4">Aller plus loin 🚀</h2>
         <div className="rounded-xl border-2 border-accent/30 bg-accent-light/30 overflow-hidden">
-          <div className="aspect-video bg-accent-light flex flex-col items-center justify-center">
-            <div className="w-14 h-14 rounded-full bg-accent/20 flex items-center justify-center mb-3">
-              <Play size={24} className="text-accent ml-0.5" />
-            </div>
-            <p className="text-sm text-accent font-medium">Vidéo à venir</p>
-          </div>
           <div className="p-5">
-            <h3 className="text-base font-bold text-navy">Découvre Tattoo Biz Pro</h3>
+            <h3 className="text-base font-bold text-navy">Découvre la Méthode Tattoo Biz</h3>
             <p className="text-sm text-text-secondary mt-1">
               La méthode complète pour remplir ton agenda grâce à Instagram
             </p>
