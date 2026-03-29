@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 interface SubscriptionInfo {
   plan: string
   trialEndsAt: string | null
+  subscriptionEndDate: string | null
   isTrialExpired: boolean
   daysLeft: number
 }
@@ -22,6 +23,7 @@ interface AuthContextType {
 const defaultSubscription: SubscriptionInfo = {
   plan: 'trial',
   trialEndsAt: null,
+  subscriptionEndDate: null,
   isTrialExpired: false,
   daysLeft: 7,
 }
@@ -50,13 +52,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const fetchSubscription = useCallback(async (userId: string) => {
     const { data } = await supabase
       .from('users')
-      .select('plan, trial_ends_at')
+      .select('plan, trial_ends_at, subscription_end_date')
       .eq('id', userId)
       .single()
 
     if (data) {
       const plan = data.plan || 'trial'
       const trialEndsAt = data.trial_ends_at || null
+      const subscriptionEndDate = data.subscription_end_date || null
       let isTrialExpired = false
       let daysLeft = 7
 
@@ -74,7 +77,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         daysLeft = 0
       }
 
-      setSubscription({ plan, trialEndsAt, isTrialExpired, daysLeft })
+      setSubscription({ plan, trialEndsAt, subscriptionEndDate, isTrialExpired, daysLeft })
     }
   }, [])
 

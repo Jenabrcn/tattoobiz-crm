@@ -219,7 +219,26 @@ export default function SettingsPage() {
           Mon abonnement
         </h2>
 
-        {subscription.plan === 'pro' ? (
+        {subscription.plan === 'pro' && subscription.subscriptionEndDate ? (
+          <>
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-sm text-text-secondary">Plan actuel :</span>
+              <span className="text-xs font-semibold bg-amber-50 text-amber-600 px-3 py-1 rounded-lg">
+                Pro — Résilié
+              </span>
+            </div>
+            <p className="text-sm text-navy font-medium mb-4">
+              Ton abonnement a été résilié. Tu gardes l'accès jusqu'au{' '}
+              {new Date(subscription.subscriptionEndDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}.
+            </p>
+            <button
+              onClick={() => user && handleCheckout(user.email!, user.id)}
+              className="px-6 py-2.5 bg-accent text-white text-sm font-medium rounded-xl hover:bg-accent/90 transition-colors"
+            >
+              Se réabonner — 19,99€/mois
+            </button>
+          </>
+        ) : subscription.plan === 'pro' ? (
           <>
             <div className="flex items-center gap-3 mb-4">
               <span className="text-sm text-text-secondary">Plan actuel :</span>

@@ -12,6 +12,7 @@ export interface Database {
           siret: string | null
           plan: string | null
           trial_ends_at: string | null
+          subscription_end_date: string | null
           created_at: string
         }
         Insert: {
@@ -24,6 +25,7 @@ export interface Database {
           siret?: string | null
           plan?: string | null
           trial_ends_at?: string | null
+          subscription_end_date?: string | null
           created_at?: string
         }
         Update: {
@@ -36,6 +38,7 @@ export interface Database {
           siret?: string | null
           plan?: string | null
           trial_ends_at?: string | null
+          subscription_end_date?: string | null
           created_at?: string
         }
         Relationships: []
