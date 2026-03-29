@@ -104,8 +104,12 @@ export default async function handler(req, res) {
 
         const userId = users[0].id
 
-        if (subscription.cancel_at_period_end && subscription.current_period_end) {
-          const endDate = new Date(subscription.current_period_end * 1000).toISOString()
+        const cancelAtPeriodEnd = subscription.cancel_at_period_end === true || subscription.cancel_at_period_end === 'true'
+        const periodEnd = subscription.current_period_end
+        console.log(`[webhook] cancel_at_period_end raw: ${JSON.stringify(subscription.cancel_at_period_end)} (type: ${typeof subscription.cancel_at_period_end}), parsed: ${cancelAtPeriodEnd}, current_period_end: ${periodEnd}`)
+
+        if (cancelAtPeriodEnd && periodEnd) {
+          const endDate = new Date(periodEnd * 1000).toISOString()
           const { data: updateData, error: updateError } = await supabase
             .from('users')
             .update({ subscription_end_date: endDate })
