@@ -5,11 +5,6 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: '2025-04-30.basil',
 })
 
-const supabase = createClient(
-  process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY,
-)
-
 export const config = {
   api: {
     bodyParser: false,
@@ -22,6 +17,17 @@ async function getRawBody(req) {
     chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk)
   }
   return Buffer.concat(chunks)
+}
+
+function getSupabase() {
+  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  console.log(`[webhook] Supabase URL defined: ${!!url}, Service Role Key defined: ${!!key}, Key prefix: ${key ? key.substring(0, 10) + '...' : 'MISSING'}`)
+  if (!url || !key) {
+    console.error('[webhook] FATAL: Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY env vars')
+    return null
+  }
+  return createClient(url, key)
 }
 
 export default async function handler(req, res) {
@@ -42,6 +48,11 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: `Webhook Error: ${err.message}` })
   }
 
+  const supabase = getSupabase()
+  if (!supabase) {
+    return res.status(500).json({ error: 'Server configuration error: missing Supabase credentials' })
+  }
+
   try {
     console.log(`[webhook] Received event: ${event.type}`)
 
@@ -52,12 +63,13 @@ export default async function handler(req, res) {
         console.log(`[webhook] checkout.session.completed — userId: ${userId}`)
 
         if (userId) {
-          const { error } = await supabase
+          const { data, error } = await supabase
             .from('users')
             .update({ plan: 'pro', subscription_end_date: null })
             .eq('id', userId)
+            .select()
 
-          console.log(`[webhook] User ${userId} upgraded to pro — error: ${error?.message || 'none'}`)
+          console.log(`[webhook] UPDATE result — data: ${JSON.stringify(data)}, error: ${JSON.stringify(error)}`)
         }
         break
       }
@@ -68,33 +80,47 @@ export default async function handler(req, res) {
         console.log(`[webhook] subscription.updated — customerId: ${customerId}, cancel_at_period_end: ${subscription.cancel_at_period_end}, current_period_end: ${subscription.current_period_end}`)
 
         const customer = await stripe.customers.retrieve(customerId)
-        console.log(`[webhook] customer email: ${customer?.email || 'not found'}, deleted: ${customer?.deleted}`)
+        const email = customer && !customer.deleted ? customer.email : null
+        console.log(`[webhook] Stripe customer email: "${email}", deleted: ${customer?.deleted}`)
 
-        if (customer && !customer.deleted && customer.email) {
-          const { data: users, error: findError } = await supabase
+        if (!email) {
+          console.error('[webhook] No email found for customer')
+          break
+        }
+
+        // Verify user exists
+        const { data: users, error: findError } = await supabase
+          .from('users')
+          .select('id, email, plan, subscription_end_date')
+          .eq('email', email)
+          .limit(1)
+
+        console.log(`[webhook] SELECT users by email "${email}" — data: ${JSON.stringify(users)}, error: ${JSON.stringify(findError)}`)
+
+        if (!users || users.length === 0) {
+          console.error(`[webhook] No user found with email: ${email}`)
+          break
+        }
+
+        const userId = users[0].id
+
+        if (subscription.cancel_at_period_end && subscription.current_period_end) {
+          const endDate = new Date(subscription.current_period_end * 1000).toISOString()
+          const { data: updateData, error: updateError } = await supabase
             .from('users')
-            .select('id')
-            .eq('email', customer.email)
-            .limit(1)
+            .update({ subscription_end_date: endDate })
+            .eq('id', userId)
+            .select()
 
-          console.log(`[webhook] Found users: ${JSON.stringify(users)}, error: ${findError?.message || 'none'}`)
+          console.log(`[webhook] UPDATE subscription_end_date=${endDate} for user ${userId} — data: ${JSON.stringify(updateData)}, error: ${JSON.stringify(updateError)}`)
+        } else {
+          const { data: updateData, error: updateError } = await supabase
+            .from('users')
+            .update({ subscription_end_date: null })
+            .eq('id', userId)
+            .select()
 
-          if (users && users.length > 0) {
-            if (subscription.cancel_at_period_end && subscription.current_period_end) {
-              const endDate = new Date(subscription.current_period_end * 1000).toISOString()
-              const { error: updateError } = await supabase
-                .from('users')
-                .update({ subscription_end_date: endDate })
-                .eq('id', users[0].id)
-              console.log(`[webhook] User ${users[0].id} subscription ending on ${endDate} — error: ${updateError?.message || 'none'}`)
-            } else {
-              const { error: updateError } = await supabase
-                .from('users')
-                .update({ subscription_end_date: null })
-                .eq('id', users[0].id)
-              console.log(`[webhook] User ${users[0].id} subscription reactivated — error: ${updateError?.message || 'none'}`)
-            }
-          }
+          console.log(`[webhook] CLEAR subscription_end_date for user ${userId} — data: ${JSON.stringify(updateData)}, error: ${JSON.stringify(updateError)}`)
         }
         break
       }
@@ -105,20 +131,23 @@ export default async function handler(req, res) {
         console.log(`[webhook] subscription.deleted — customerId: ${customerId}`)
 
         const customer = await stripe.customers.retrieve(customerId)
-        if (customer && !customer.deleted && customer.email) {
+        const email = customer && !customer.deleted ? customer.email : null
+
+        if (email) {
           const { data: users } = await supabase
             .from('users')
             .select('id')
-            .eq('email', customer.email)
+            .eq('email', email)
             .limit(1)
 
           if (users && users.length > 0) {
-            const { error } = await supabase
+            const { data: updateData, error } = await supabase
               .from('users')
               .update({ plan: 'expired', subscription_end_date: null })
               .eq('id', users[0].id)
+              .select()
 
-            console.log(`[webhook] User ${users[0].id} subscription expired — error: ${error?.message || 'none'}`)
+            console.log(`[webhook] User ${users[0].id} expired — data: ${JSON.stringify(updateData)}, error: ${JSON.stringify(error)}`)
           }
         }
         break
