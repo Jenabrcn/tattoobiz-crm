@@ -16,6 +16,7 @@ import {
   Clock,
   Download,
   Trash2,
+  X,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import EditClientModal from '../components/EditClientModal'
@@ -71,6 +72,7 @@ interface AppointmentEntry {
   id: string
   date: string
   time: string
+  duration_minutes: number
   type: string
   description: string | null
 }
@@ -87,6 +89,10 @@ export default function ClientDetailPage() {
   const [showNewRdv, setShowNewRdv] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [selectedAppt, setSelectedAppt] = useState<AppointmentEntry | null>(null)
+  const [editAppt, setEditAppt] = useState<AppointmentEntry | null>(null)
+  const [confirmDeleteAppt, setConfirmDeleteAppt] = useState<string | null>(null)
+  const [deletingAppt, setDeletingAppt] = useState(false)
   const navigate = useNavigate()
   const [uploadingType, setUploadingType] = useState<PhotoType | null>(null)
   const notesTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -125,7 +131,8 @@ export default function ClientDetailPage() {
       .from('appointments')
       .select('*')
       .eq('client_id', id)
-      .order('date', { ascending: false }) as { data: AppointmentEntry[] | null }
+      .order('date')
+      .order('time') as { data: AppointmentEntry[] | null }
     setAppointments(appts || [])
 
     if (isInitial) setLoading(false)
@@ -473,14 +480,92 @@ export default function ClientDetailPage() {
         </div>
       </div>
 
-      {/* Historique des séances - full width */}
+      {/* Rendez-vous */}
+      <div className="bg-white rounded-xl border border-border p-6">
+        <h3 className="text-sm font-semibold text-navy flex items-center gap-2 mb-4">
+          <Calendar size={16} className="text-accent" />
+          Rendez-vous
+        </h3>
+        {appointments.length === 0 ? (
+          <p className="text-sm text-text-muted text-center py-8">Aucun rendez-vous</p>
+        ) : (() => {
+          const todayStr = new Date().toISOString().split('T')[0]
+          const upcoming = appointments.filter(a => a.date >= todayStr)
+          const past = appointments.filter(a => a.date < todayStr).reverse()
+          const sorted = [...upcoming, ...past]
+          const typeStyles: Record<string, { bg: string; text: string }> = {
+            tattoo: { bg: 'bg-accent-light', text: 'text-accent' },
+            consultation: { bg: 'bg-gray-50', text: 'text-navy' },
+            retouche: { bg: 'bg-green/5', text: 'text-green' },
+          }
+          const typeLabels: Record<string, string> = {
+            tattoo: 'Tattoo', consultation: 'Consultation', retouche: 'Retouche',
+          }
+          const fmtEndTime = (time: string, dur: number) => {
+            const [h, m] = time.split(':').map(Number)
+            const t = h * 60 + m + dur
+            return `${String(Math.floor(t / 60) % 24).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`
+          }
+          const durLabels: Record<string, string> = {
+            '30': '30min', '60': '1h', '90': '1h30', '120': '2h', '150': '2h30',
+            '180': '3h', '210': '3h30', '240': '4h', '270': '4h30', '300': '5h',
+          }
+          return (
+            <div className="divide-y divide-border">
+              {sorted.map(a => {
+                const isUpcoming = a.date >= todayStr
+                const style = typeStyles[a.type] || typeStyles.tattoo
+                return (
+                  <div
+                    key={a.id}
+                    className="flex items-center gap-4 py-3 cursor-pointer hover:bg-gray-50/50 transition-colors -mx-2 px-2 rounded-lg"
+                    onClick={() => { setSelectedAppt(a); setConfirmDeleteAppt(null) }}
+                  >
+                    <div className="w-16 text-center shrink-0">
+                      <p className="text-xs font-bold text-accent">
+                        {new Date(a.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                      </p>
+                      <p className="text-[10px] text-text-muted">
+                        {new Date(a.date).toLocaleDateString('fr-FR', { weekday: 'short' })}
+                      </p>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-navy">
+                          {a.time.slice(0, 5)} - {fmtEndTime(a.time, a.duration_minutes)}
+                        </span>
+                        <span className="text-xs text-text-muted">
+                          {durLabels[String(a.duration_minutes)] || `${a.duration_minutes} min`}
+                        </span>
+                      </div>
+                      {a.description && (
+                        <p className="text-xs text-text-muted truncate">{a.description}</p>
+                      )}
+                    </div>
+                    <span className={`shrink-0 text-xs font-medium px-2 py-0.5 rounded-lg ${style.bg} ${style.text}`}>
+                      {typeLabels[a.type] || a.type}
+                    </span>
+                    <span className={`shrink-0 text-[10px] font-medium px-2 py-0.5 rounded-lg ${
+                      isUpcoming ? 'bg-accent-light text-accent' : 'bg-gray-100 text-text-muted'
+                    }`}>
+                      {isUpcoming ? 'À venir' : 'Passé'}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          )
+        })()}
+      </div>
+
+      {/* Historique des transactions - full width */}
       <div className="bg-white rounded-xl border border-border p-6">
         <h3 className="text-sm font-semibold text-navy flex items-center gap-2 mb-4">
           <Clock size={16} className="text-accent" />
-          Historique des séances
+          Historique des transactions
         </h3>
         {finances.length === 0 ? (
-          <p className="text-sm text-text-muted text-center py-8">Aucune séance enregistrée</p>
+          <p className="text-sm text-text-muted text-center py-8">Aucune transaction enregistrée</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -572,6 +657,168 @@ export default function ClientDetailPage() {
         onClose={() => setShowNewRdv(false)}
         onCreated={fetchData}
       />
+
+      {/* Appointment detail popup */}
+      {selectedAppt && !editAppt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setSelectedAppt(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-md mx-4 p-6" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-navy">Détails du rendez-vous</h2>
+              <button onClick={() => setSelectedAppt(null)} className="p-1 rounded-lg hover:bg-gray-100 text-text-muted">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="space-y-3 mb-6">
+              <div className="flex justify-between items-center py-2 border-b border-border">
+                <span className="text-sm text-text-secondary">Date</span>
+                <span className="text-sm font-medium text-navy">
+                  {new Date(selectedAppt.date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                </span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-border">
+                <span className="text-sm text-text-secondary">Horaire</span>
+                <span className="text-sm font-medium text-navy">
+                  {selectedAppt.time.slice(0, 5)} — {(() => {
+                    const [h, m] = selectedAppt.time.split(':').map(Number)
+                    const t = h * 60 + m + selectedAppt.duration_minutes
+                    return `${String(Math.floor(t / 60) % 24).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`
+                  })()}
+                </span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-border">
+                <span className="text-sm text-text-secondary">Type</span>
+                <span className="text-sm font-medium text-navy">
+                  {{ tattoo: 'Séance tattoo', consultation: 'Consultation', retouche: 'Retouche' }[selectedAppt.type] || selectedAppt.type}
+                </span>
+              </div>
+              {selectedAppt.description && (
+                <div className="py-2">
+                  <span className="text-sm text-text-secondary">Description</span>
+                  <p className="text-sm text-navy mt-1">{selectedAppt.description}</p>
+                </div>
+              )}
+            </div>
+            {confirmDeleteAppt === selectedAppt.id ? (
+              <div className="bg-red/5 border border-red/20 rounded-xl p-4">
+                <p className="text-sm text-navy mb-3">Es-tu sûr de vouloir supprimer ce rendez-vous ?</p>
+                <div className="flex gap-2 justify-end">
+                  <button onClick={() => setConfirmDeleteAppt(null)}
+                    className="px-4 py-2 text-sm font-medium rounded-xl border border-border text-text-secondary hover:bg-gray-50 transition-colors">
+                    Annuler
+                  </button>
+                  <button
+                    onClick={async () => {
+                      setDeletingAppt(true)
+                      await supabase.from('appointments').delete().eq('id', selectedAppt.id)
+                      setDeletingAppt(false)
+                      setSelectedAppt(null)
+                      setConfirmDeleteAppt(null)
+                      fetchData(false)
+                    }}
+                    disabled={deletingAppt}
+                    className="px-4 py-2 text-sm font-medium rounded-xl bg-red text-white hover:bg-red/90 transition-colors disabled:opacity-50">
+                    {deletingAppt ? 'Suppression...' : 'Supprimer'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex gap-3">
+                <button
+                  onClick={() => { setEditAppt(selectedAppt); setSelectedAppt(null) }}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl border border-border text-text-secondary hover:bg-gray-50 transition-colors">
+                  <Pencil size={16} />
+                  Modifier
+                </button>
+                <button
+                  onClick={() => setConfirmDeleteAppt(selectedAppt.id)}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl border border-red/30 text-red hover:bg-red/5 transition-colors">
+                  <Trash2 size={16} />
+                  Supprimer
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Edit appointment modal */}
+      {editAppt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl w-full max-w-lg mx-4">
+            <div className="flex items-center justify-between p-6 border-b border-border">
+              <div>
+                <h2 className="text-lg font-bold text-navy">Modifier le rendez-vous</h2>
+                <p className="text-sm text-text-muted mt-0.5">{fullName}</p>
+              </div>
+              <button onClick={() => setEditAppt(null)} className="p-1 rounded-lg hover:bg-gray-100 text-text-muted">
+                <X size={20} />
+              </button>
+            </div>
+            <form onSubmit={async (e) => {
+              e.preventDefault()
+              const form = e.currentTarget
+              const fd = new FormData(form)
+              await supabase.from('appointments').update({
+                date: fd.get('date') as string,
+                time: fd.get('time') as string,
+                duration_minutes: parseInt(fd.get('duration') as string) || 60,
+                type: fd.get('type') as 'tattoo' | 'consultation' | 'retouche',
+                description: (fd.get('description') as string)?.trim() || null,
+              }).eq('id', editAppt.id)
+              setEditAppt(null)
+              fetchData(false)
+            }} className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-navy mb-1">Date *</label>
+                  <input required type="date" name="date" defaultValue={editAppt.date}
+                    className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-navy mb-1">Heure *</label>
+                  <input required type="time" name="time" defaultValue={editAppt.time}
+                    className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-navy mb-1">Type</label>
+                  <select name="type" defaultValue={editAppt.type}
+                    className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent bg-white">
+                    <option value="tattoo">Séance tattoo</option>
+                    <option value="consultation">Consultation</option>
+                    <option value="retouche">Retouche</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-navy mb-1">Durée</label>
+                  <select name="duration" defaultValue={String(editAppt.duration_minutes)}
+                    className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent bg-white">
+                    {[['30','30min'],['60','1h'],['90','1h30'],['120','2h'],['150','2h30'],['180','3h'],['210','3h30'],['240','4h'],['270','4h30'],['300','5h'],['330','5h30'],['360','6h']].map(([v,l]) =>
+                      <option key={v} value={v}>{l}</option>
+                    )}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-navy mb-1">Description</label>
+                <textarea name="description" defaultValue={editAppt.description || ''} rows={3}
+                  className="w-full px-3 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent resize-none" />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setEditAppt(null)}
+                  className="flex-1 px-4 py-2.5 text-sm font-medium rounded-xl border border-border text-text-secondary hover:bg-gray-50 transition-colors">
+                  Annuler
+                </button>
+                <button type="submit"
+                  className="flex-1 px-4 py-2.5 text-sm font-medium rounded-xl bg-accent text-white hover:bg-accent/90 transition-colors">
+                  Enregistrer
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
