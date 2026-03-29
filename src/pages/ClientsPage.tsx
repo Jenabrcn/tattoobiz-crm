@@ -264,9 +264,9 @@ export default function ClientsPage() {
                 <button
                   onClick={() => data.setPage(data.page - 1)}
                   disabled={data.page === 1}
-                  className="p-2 rounded-lg text-text-muted hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  className="p-2 rounded-lg text-text-secondary hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
-                  <ChevronLeft size={16} />
+                  <ChevronLeft size={18} />
                 </button>
                 {Array.from({ length: data.totalPages }, (_, i) => i + 1).map(p => (
                   <button
@@ -284,9 +284,9 @@ export default function ClientsPage() {
                 <button
                   onClick={() => data.setPage(data.page + 1)}
                   disabled={data.page === data.totalPages}
-                  className="p-2 rounded-lg text-text-muted hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  className="p-2 rounded-lg text-text-secondary hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
-                  <ChevronRight size={16} />
+                  <ChevronRight size={18} />
                 </button>
               </div>
             </div>
