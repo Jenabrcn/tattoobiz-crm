@@ -42,8 +42,13 @@ function startOfMonth(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), 1)
 }
 
+function parseLocalDate(dateStr: string): Date {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  return new Date(y, m - 1, d)
+}
+
 function getGroupKey(dateStr: string, groupBy: 'day' | 'week' | 'month'): string {
-  const d = new Date(dateStr)
+  const d = parseLocalDate(dateStr)
   if (groupBy === 'month') {
     return d.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' })
   }
@@ -155,7 +160,7 @@ export function useFinancesData() {
   const periodDates = periodFiltered.map(e => e.date).sort()
   const rangeStart = periodDates[0] || fmtDate(now)
   const rangeEnd = periodDates[periodDates.length - 1] || fmtDate(now)
-  const rangeDays = (new Date(rangeEnd).getTime() - new Date(rangeStart).getTime()) / 86400000
+  const rangeDays = (parseLocalDate(rangeEnd).getTime() - parseLocalDate(rangeStart).getTime()) / 86400000
   const groupBy: 'day' | 'week' | 'month' = rangeDays <= 35 ? 'day' : rangeDays <= 120 ? 'week' : 'month'
 
   const revMap = new Map<string, number>()
@@ -170,8 +175,8 @@ export function useFinancesData() {
   })
   const allKeys: string[] = []
   const seen = new Set<string>()
-  const cur = new Date(rangeStart)
-  const end = new Date(rangeEnd)
+  const cur = parseLocalDate(rangeStart)
+  const end = parseLocalDate(rangeEnd)
   while (cur <= end) {
     const key = getGroupKey(fmtDate(cur), groupBy)
     if (!seen.has(key)) { seen.add(key); allKeys.push(key) }
