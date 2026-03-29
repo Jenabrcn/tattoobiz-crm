@@ -2,6 +2,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useEffect, useState, useCallback, useRef } from 'react'
 import {
   ChevronRight,
+  ChevronLeft,
   Pencil,
   CalendarPlus,
   Phone,
@@ -93,6 +94,8 @@ export default function ClientDetailPage() {
   const [editAppt, setEditAppt] = useState<AppointmentEntry | null>(null)
   const [confirmDeleteAppt, setConfirmDeleteAppt] = useState<string | null>(null)
   const [deletingAppt, setDeletingAppt] = useState(false)
+  const [apptPage, setApptPage] = useState(1)
+  const [txPage, setTxPage] = useState(1)
   const navigate = useNavigate()
   const [uploadingType, setUploadingType] = useState<PhotoType | null>(null)
   const notesTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -510,50 +513,76 @@ export default function ClientDetailPage() {
             '30': '30min', '60': '1h', '90': '1h30', '120': '2h', '150': '2h30',
             '180': '3h', '210': '3h30', '240': '4h', '270': '4h30', '300': '5h',
           }
+          const apptTotalPages = Math.max(1, Math.ceil(sorted.length / 5))
+          const apptSafePage = Math.min(apptPage, apptTotalPages)
+          const apptPaginated = sorted.slice((apptSafePage - 1) * 5, apptSafePage * 5)
           return (
-            <div className="divide-y divide-border">
-              {sorted.map(a => {
-                const isUpcoming = a.date >= todayStr
-                const style = typeStyles[a.type] || typeStyles.tattoo
-                return (
-                  <div
-                    key={a.id}
-                    className="flex items-center gap-4 py-3 cursor-pointer hover:bg-gray-50/50 transition-colors -mx-2 px-2 rounded-lg"
-                    onClick={() => { setSelectedAppt(a); setConfirmDeleteAppt(null) }}
-                  >
-                    <div className="w-16 text-center shrink-0">
-                      <p className="text-xs font-bold text-accent">
-                        {new Date(a.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
-                      </p>
-                      <p className="text-[10px] text-text-muted">
-                        {new Date(a.date).toLocaleDateString('fr-FR', { weekday: 'short' })}
-                      </p>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-navy">
-                          {a.time.slice(0, 5)} - {fmtEndTime(a.time, a.duration_minutes)}
-                        </span>
-                        <span className="text-xs text-text-muted">
-                          {durLabels[String(a.duration_minutes)] || `${a.duration_minutes} min`}
-                        </span>
+            <>
+              <div className="divide-y divide-border">
+                {apptPaginated.map(a => {
+                  const isUpcoming = a.date >= todayStr
+                  const style = typeStyles[a.type] || typeStyles.tattoo
+                  return (
+                    <div
+                      key={a.id}
+                      className="flex items-center gap-4 py-3 cursor-pointer hover:bg-gray-50/50 transition-colors -mx-2 px-2 rounded-lg"
+                      onClick={() => { setSelectedAppt(a); setConfirmDeleteAppt(null) }}
+                    >
+                      <div className="w-16 text-center shrink-0">
+                        <p className="text-xs font-bold text-accent">
+                          {new Date(a.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                        </p>
+                        <p className="text-[10px] text-text-muted">
+                          {new Date(a.date).toLocaleDateString('fr-FR', { weekday: 'short' })}
+                        </p>
                       </div>
-                      {a.description && (
-                        <p className="text-xs text-text-muted truncate">{a.description}</p>
-                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-navy">
+                            {a.time.slice(0, 5)} - {fmtEndTime(a.time, a.duration_minutes)}
+                          </span>
+                          <span className="text-xs text-text-muted">
+                            {durLabels[String(a.duration_minutes)] || `${a.duration_minutes} min`}
+                          </span>
+                        </div>
+                        {a.description && (
+                          <p className="text-xs text-text-muted truncate">{a.description}</p>
+                        )}
+                      </div>
+                      <span className={`shrink-0 text-xs font-medium px-2 py-0.5 rounded-lg ${style.bg} ${style.text}`}>
+                        {typeLabels[a.type] || a.type}
+                      </span>
+                      <span className={`shrink-0 text-[10px] font-medium px-2 py-0.5 rounded-lg ${
+                        isUpcoming ? 'bg-accent-light text-accent' : 'bg-gray-100 text-text-muted'
+                      }`}>
+                        {isUpcoming ? 'À venir' : 'Passé'}
+                      </span>
                     </div>
-                    <span className={`shrink-0 text-xs font-medium px-2 py-0.5 rounded-lg ${style.bg} ${style.text}`}>
-                      {typeLabels[a.type] || a.type}
-                    </span>
-                    <span className={`shrink-0 text-[10px] font-medium px-2 py-0.5 rounded-lg ${
-                      isUpcoming ? 'bg-accent-light text-accent' : 'bg-gray-100 text-text-muted'
-                    }`}>
-                      {isUpcoming ? 'À venir' : 'Passé'}
-                    </span>
+                  )
+                })}
+              </div>
+              {apptTotalPages > 1 && (
+                <div className="flex items-center justify-between pt-4 mt-2 border-t border-border">
+                  <p className="text-sm text-text-muted">Page {apptSafePage} sur {apptTotalPages}</p>
+                  <div className="flex gap-1">
+                    <button onClick={() => setApptPage(p => Math.max(1, p - 1))} disabled={apptSafePage === 1}
+                      className="p-2 rounded-lg text-text-secondary hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                      <ChevronLeft size={18} />
+                    </button>
+                    {Array.from({ length: apptTotalPages }, (_, i) => i + 1).map(p => (
+                      <button key={p} onClick={() => setApptPage(p)}
+                        className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${p === apptSafePage ? 'bg-accent text-white' : 'text-text-secondary hover:bg-gray-100'}`}>
+                        {p}
+                      </button>
+                    ))}
+                    <button onClick={() => setApptPage(p => Math.min(apptTotalPages, p + 1))} disabled={apptSafePage === apptTotalPages}
+                      className="p-2 rounded-lg text-text-secondary hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                      <ChevronRight size={18} />
+                    </button>
                   </div>
-                )
-              })}
-            </div>
+                </div>
+              )}
+            </>
           )
         })()}
       </div>
@@ -566,40 +595,68 @@ export default function ClientDetailPage() {
         </h3>
         {finances.length === 0 ? (
           <p className="text-sm text-text-muted text-center py-8">Aucune transaction enregistrée</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left text-xs font-medium text-text-muted px-4 py-3">Date</th>
-                  <th className="text-left text-xs font-medium text-text-muted px-4 py-3">Description</th>
-                  <th className="text-left text-xs font-medium text-text-muted px-4 py-3">Montant</th>
-                  <th className="text-left text-xs font-medium text-text-muted px-4 py-3">Statut</th>
-                </tr>
-              </thead>
-              <tbody>
-                {finances.map(f => (
-                  <tr key={f.id} className="border-b border-border last:border-b-0">
-                    <td className="px-4 py-3 text-sm text-text-secondary">{formatDateFr(f.date)}</td>
-                    <td className="px-4 py-3 text-sm text-navy">{f.description || '—'}</td>
-                    <td className="px-4 py-3 text-sm font-medium text-green">{formatCurrency(Number(f.amount))}</td>
-                    <td className="px-4 py-3">
-                      {f.type === 'arrhes' ? (
-                        <span className="text-xs font-medium px-2.5 py-1 rounded-lg bg-accent-light text-accent">
-                          Arrhes versées
-                        </span>
-                      ) : (
-                        <span className="text-xs font-medium px-2.5 py-1 rounded-lg bg-green/10 text-green">
-                          Payé
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        ) : (() => {
+          const txTotalPages = Math.max(1, Math.ceil(finances.length / 5))
+          const txSafePage = Math.min(txPage, txTotalPages)
+          const txPaginated = finances.slice((txSafePage - 1) * 5, txSafePage * 5)
+          return (
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="text-left text-xs font-medium text-text-muted px-4 py-3">Date</th>
+                      <th className="text-left text-xs font-medium text-text-muted px-4 py-3">Description</th>
+                      <th className="text-left text-xs font-medium text-text-muted px-4 py-3">Montant</th>
+                      <th className="text-left text-xs font-medium text-text-muted px-4 py-3">Statut</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {txPaginated.map(f => (
+                      <tr key={f.id} className="border-b border-border last:border-b-0">
+                        <td className="px-4 py-3 text-sm text-text-secondary">{formatDateFr(f.date)}</td>
+                        <td className="px-4 py-3 text-sm text-navy">{f.description || '—'}</td>
+                        <td className="px-4 py-3 text-sm font-medium text-green">{formatCurrency(Number(f.amount))}</td>
+                        <td className="px-4 py-3">
+                          {f.type === 'arrhes' ? (
+                            <span className="text-xs font-medium px-2.5 py-1 rounded-lg bg-accent-light text-accent">
+                              Arrhes versées
+                            </span>
+                          ) : (
+                            <span className="text-xs font-medium px-2.5 py-1 rounded-lg bg-green/10 text-green">
+                              Payé
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {txTotalPages > 1 && (
+                <div className="flex items-center justify-between pt-4 mt-2 border-t border-border">
+                  <p className="text-sm text-text-muted">Page {txSafePage} sur {txTotalPages}</p>
+                  <div className="flex gap-1">
+                    <button onClick={() => setTxPage(p => Math.max(1, p - 1))} disabled={txSafePage === 1}
+                      className="p-2 rounded-lg text-text-secondary hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                      <ChevronLeft size={18} />
+                    </button>
+                    {Array.from({ length: txTotalPages }, (_, i) => i + 1).map(p => (
+                      <button key={p} onClick={() => setTxPage(p)}
+                        className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${p === txSafePage ? 'bg-accent text-white' : 'text-text-secondary hover:bg-gray-100'}`}>
+                        {p}
+                      </button>
+                    ))}
+                    <button onClick={() => setTxPage(p => Math.min(txTotalPages, p + 1))} disabled={txSafePage === txTotalPages}
+                      className="p-2 rounded-lg text-text-secondary hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                      <ChevronRight size={18} />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )
+        })()}
       </div>
 
       {/* Delete client */}
