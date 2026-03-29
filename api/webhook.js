@@ -51,10 +51,44 @@ export default async function handler(req, res) {
         if (userId) {
           await supabase
             .from('users')
-            .update({ plan: 'pro' })
+            .update({ plan: 'pro', subscription_end_date: null })
             .eq('id', userId)
 
           console.log(`User ${userId} upgraded to pro`)
+        }
+        break
+      }
+
+      case 'customer.subscription.updated': {
+        const subscription = event.data.object
+        const customerId = subscription.customer
+
+        const customer = await stripe.customers.retrieve(customerId)
+        if (customer && !customer.deleted && customer.email) {
+          const { data: users } = await supabase
+            .from('users')
+            .select('id')
+            .eq('email', customer.email)
+            .limit(1)
+
+          if (users && users.length > 0) {
+            if (subscription.cancel_at_period_end && subscription.current_period_end) {
+              // User cancelled but still active until period end
+              const endDate = new Date(subscription.current_period_end * 1000).toISOString()
+              await supabase
+                .from('users')
+                .update({ subscription_end_date: endDate })
+                .eq('id', users[0].id)
+              console.log(`User ${users[0].id} subscription ending on ${endDate}`)
+            } else {
+              // User resubscribed or cancellation was reversed
+              await supabase
+                .from('users')
+                .update({ subscription_end_date: null })
+                .eq('id', users[0].id)
+              console.log(`User ${users[0].id} subscription reactivated`)
+            }
+          }
         }
         break
       }
