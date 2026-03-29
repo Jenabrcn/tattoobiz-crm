@@ -43,18 +43,21 @@ export default async function handler(req, res) {
   }
 
   try {
+    console.log(`[webhook] Received event: ${event.type}`)
+
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object
         const userId = session.metadata?.supabase_user_id
+        console.log(`[webhook] checkout.session.completed — userId: ${userId}`)
 
         if (userId) {
-          await supabase
+          const { error } = await supabase
             .from('users')
             .update({ plan: 'pro', subscription_end_date: null })
             .eq('id', userId)
 
-          console.log(`User ${userId} upgraded to pro`)
+          console.log(`[webhook] User ${userId} upgraded to pro — error: ${error?.message || 'none'}`)
         }
         break
       }
@@ -62,31 +65,34 @@ export default async function handler(req, res) {
       case 'customer.subscription.updated': {
         const subscription = event.data.object
         const customerId = subscription.customer
+        console.log(`[webhook] subscription.updated — customerId: ${customerId}, cancel_at_period_end: ${subscription.cancel_at_period_end}, current_period_end: ${subscription.current_period_end}`)
 
         const customer = await stripe.customers.retrieve(customerId)
+        console.log(`[webhook] customer email: ${customer?.email || 'not found'}, deleted: ${customer?.deleted}`)
+
         if (customer && !customer.deleted && customer.email) {
-          const { data: users } = await supabase
+          const { data: users, error: findError } = await supabase
             .from('users')
             .select('id')
             .eq('email', customer.email)
             .limit(1)
 
+          console.log(`[webhook] Found users: ${JSON.stringify(users)}, error: ${findError?.message || 'none'}`)
+
           if (users && users.length > 0) {
             if (subscription.cancel_at_period_end && subscription.current_period_end) {
-              // User cancelled but still active until period end
               const endDate = new Date(subscription.current_period_end * 1000).toISOString()
-              await supabase
+              const { error: updateError } = await supabase
                 .from('users')
                 .update({ subscription_end_date: endDate })
                 .eq('id', users[0].id)
-              console.log(`User ${users[0].id} subscription ending on ${endDate}`)
+              console.log(`[webhook] User ${users[0].id} subscription ending on ${endDate} — error: ${updateError?.message || 'none'}`)
             } else {
-              // User resubscribed or cancellation was reversed
-              await supabase
+              const { error: updateError } = await supabase
                 .from('users')
                 .update({ subscription_end_date: null })
                 .eq('id', users[0].id)
-              console.log(`User ${users[0].id} subscription reactivated`)
+              console.log(`[webhook] User ${users[0].id} subscription reactivated — error: ${updateError?.message || 'none'}`)
             }
           }
         }
@@ -96,8 +102,8 @@ export default async function handler(req, res) {
       case 'customer.subscription.deleted': {
         const subscription = event.data.object
         const customerId = subscription.customer
+        console.log(`[webhook] subscription.deleted — customerId: ${customerId}`)
 
-        // Find user by looking up the customer email
         const customer = await stripe.customers.retrieve(customerId)
         if (customer && !customer.deleted && customer.email) {
           const { data: users } = await supabase
@@ -107,22 +113,22 @@ export default async function handler(req, res) {
             .limit(1)
 
           if (users && users.length > 0) {
-            await supabase
+            const { error } = await supabase
               .from('users')
-              .update({ plan: 'expired' })
+              .update({ plan: 'expired', subscription_end_date: null })
               .eq('id', users[0].id)
 
-            console.log(`User ${users[0].id} subscription expired`)
+            console.log(`[webhook] User ${users[0].id} subscription expired — error: ${error?.message || 'none'}`)
           }
         }
         break
       }
 
       default:
-        console.log(`Unhandled event type: ${event.type}`)
+        console.log(`[webhook] Unhandled event type: ${event.type}`)
     }
   } catch (err) {
-    console.error('Webhook processing error:', err)
+    console.error('[webhook] Processing error:', err)
     return res.status(500).json({ error: 'Webhook processing failed' })
   }
 
